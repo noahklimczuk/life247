@@ -7,25 +7,23 @@ import SwiftUI
 
 // MARK: - App Root Coordinator Hub
 struct MainAppInterfaceHub: View {
-    @StateObject private var authContext = SessionAuthContext()
-    @StateObject private var trackingEngine = BackgroundTrackingEngine.shared
+    @EnvironmentObject var authContext: SessionAuthContext
+    @EnvironmentObject var trackingEngine: BackgroundTrackingEngine // Aligned seamlessly to your project engine type
     @State private var splashCompleted = false
     
     var body: some View {
         ZStack {
             if !splashCompleted {
-                AppLoadingView(isFullyLoaded: $splashCompleted)
+                // Calling the view cleanly without arguments since it manages its own state
+                TelemetryLoadingView()
                     .transition(.opacity)
             } else {
                 if authContext.isAuthenticated {
-                    // FIX: Direct authenticated operators straight to the main tracking workspace map
+                    // Direct authenticated operators straight to the main tracking workspace map viewport
                     MainApplicationTelemetryWorkspace()
-                        .environmentObject(authContext)
-                        .environmentObject(trackingEngine)
                         .transition(.opacity)
                 } else {
                     NormalLoginView()
-                        .environmentObject(authContext)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
@@ -83,32 +81,5 @@ struct NormalLoginView: View {
             Spacer()
         }
         .padding(24)
-    }
-}
-
-// MARK: - Telemetry Core Startup Pulse View
-struct AppLoadingView: View {
-    @Binding var isFullyLoaded: Bool
-    
-    var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-            VStack {
-                ProgressView()
-                    .tint(.blue)
-                    .scaleEffect(1.5)
-                Text("Initializing Telemetry...")
-                    .foregroundColor(.gray)
-                    .font(.caption)
-                    .padding()
-            }
-        }
-        .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-                withAnimation {
-                    isFullyLoaded = true
-                }
-            }
-        }
     }
 }

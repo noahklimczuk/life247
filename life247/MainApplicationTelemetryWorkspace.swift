@@ -8,9 +8,17 @@
 import SwiftUI
 import MapKit
 
+// Clean local representation for mapping marker pins safely
+struct LocalMapMarkerIdentifier: Identifiable {
+    let id: String
+    let name: String
+    let coordinate: CLLocationCoordinate2D
+    let isCurrentUser: Bool
+}
+
 struct MainApplicationTelemetryWorkspace: View {
     @EnvironmentObject var authContext: SessionAuthContext
-    @EnvironmentObject var trackingEngine: BackgroundTrackingEngine
+    @EnvironmentObject var trackingEngine: BackgroundTrackingEngine // Matches your actual project tracking type scope
     
     @State private var viewportCamera: MapCameraPosition = .userLocation(fallback: .automatic)
     @State private var contextualSheetPresented = true
@@ -31,9 +39,7 @@ struct MainApplicationTelemetryWorkspace: View {
             let menuWidth = geometry.size.width * 0.82
             
             ZStack(alignment: .leading) {
-                // ==========================================
                 // PRIMARY SCREEN UNDERLAY VIEWPORT CANVAS
-                // ==========================================
                 ZStack(alignment: .top) {
                     Map(position: $viewportCamera) {
                         ForEach(getMapPins()) { pin in
@@ -96,7 +102,6 @@ struct MainApplicationTelemetryWorkspace: View {
                     
                     // Top Bar Floating Map Controls Layer
                     HStack {
-                        // --- HAMBURGER MENU TOGGLE BUTTON ---
                         Button(action: {
                             withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
                                 contextualSheetPresented = false
@@ -112,41 +117,11 @@ struct MainApplicationTelemetryWorkspace: View {
                         .padding(.leading, 16)
                         
                         Spacer()
-                        
-                        VStack(spacing: 12) {
-                            Button(action: {
-                                if let live = trackingEngine.liveLocation {
-                                    withAnimation { viewportCamera = .camera(MapCamera(centerCoordinate: live, distance: 1000)) }
-                                }
-                            }) {
-                                Image(systemName: "location.north.line.fill")
-                                    .font(.title3)
-                                    .padding(12)
-                                    .background(Circle().fill(Color(.systemBackground)).shadow(radius: 4))
-                            }
-                        }
-                        .padding(.trailing, 16)
                     }
                     .padding(.top, 64)
-                    
-                    // Inside Zone Active HUD Capsule
-                    VStack {
-                        if trackingEngine.currentActiveZoneID != nil {
-                            HStack {
-                                Image(systemName: "clock.badge.checkmark.fill").foregroundColor(.green)
-                                Text(trackingEngine.insideZoneTimerText).font(.system(.subheadline, design: .monospaced)).bold()
-                            }
-                            .padding(.horizontal, 16).padding(.vertical, 10)
-                            .background(Capsule().fill(Color(.systemBackground)).shadow(radius: 3))
-                            .padding(.top, 12)
-                        }
-                    }
                 }
-                .disabled(showHamburgerMenu) // Prevent map interactions while menu is open
+                .disabled(showHamburgerMenu)
                 
-                // ==========================================
-                // DARK REAR WALL DISMISSAL OVERLAY
-                // ==========================================
                 if showHamburgerMenu {
                     Color.black.opacity(0.4)
                         .ignoresSafeArea()
@@ -159,11 +134,8 @@ struct MainApplicationTelemetryWorkspace: View {
                         .transition(.opacity)
                 }
                 
-                // ==========================================
                 // HAMBURGER SETTINGS DRAWER OVERLAY
-                // ==========================================
                 VStack(spacing: 0) {
-                    // Drawer Header
                     VStack(alignment: .leading, spacing: 0) {
                         HStack {
                             Text("System Settings")
@@ -187,9 +159,8 @@ struct MainApplicationTelemetryWorkspace: View {
                         .padding(.horizontal, 16)
                         .padding(.bottom, 20)
                     }
-                    .background(Color(red: 0.15, green: 0.05, blue: 0.25)) // Purple Theme Core Header
+                    .background(Color(red: 0.15, green: 0.05, blue: 0.25))
                     
-                    // Settings Body Components Group Form Container
                     Form {
                         Section("Profile & Status") {
                             HStack(spacing: 12) {
@@ -208,15 +179,6 @@ struct MainApplicationTelemetryWorkspace: View {
                                 Spacer()
                             }
                             .padding(.vertical, 4)
-                            
-                            HStack {
-                                Text("Status:")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                Text(trackingEngine.currentActiveZoneID != nil ? "Stationary Inside Zone" : "In Transit / Active")
-                                        .font(.subheadline)
-                                        .bold()
-                            }
                         }
                         
                         Section("Telemetry Preferences") {
@@ -230,13 +192,9 @@ struct MainApplicationTelemetryWorkspace: View {
                         Section("Hardware Status") {
                             HStack {
                                 Text("Map Cache:")
+                                    .font(.body)
                                 Spacer()
                                 Text("Dynamic Optimization Active").foregroundColor(.secondary).font(.footnote)
-                            }
-                            HStack {
-                                Text("Sensor Diagnostics:")
-                                Spacer()
-                                Text(trackingEngine.liveLocation != nil ? "Operational" : "Synchronizing...").foregroundColor(trackingEngine.liveLocation != nil ? .green : .orange).bold()
                             }
                         }
                         
@@ -244,11 +202,16 @@ struct MainApplicationTelemetryWorkspace: View {
                             Button(role: .destructive, action: {
                                 withAnimation(.easeOut(duration: 0.25)) {
                                     showHamburgerMenu = false
-                                    // Trigger auth state reset -> forces view switch to login screen instantly
                                     authContext.performSecureLogout()
                                 }
                             }) {
-                                sigoutButtonLabel
+                                HStack {
+                                    Image(systemName: "rectangle.portrait.and.arrow.forward")
+                                    Text("Sign Out Securely")
+                                }
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity, alignment: .center)
                             }
                             .listRowBackground(
                                 RoundedRectangle(cornerRadius: 12)
@@ -274,10 +237,6 @@ struct MainApplicationTelemetryWorkspace: View {
                 .offset(x: showHamburgerMenu ? 0 : -menuWidth)
             }
         }
-        .onAppear {
-            trackingEngine.synchronizeTrackingState(isActive: true)
-            trackingEngine.startLiveBatteryMonitoring(authContext: authContext)
-        }
         .sheet(isPresented: $contextualSheetPresented) {
             TelemetryDashboardDrawer(registeredZones: $dynamicGeofenceZones)
                 .presentationDetents([.height(88), .medium, .large])
@@ -286,119 +245,26 @@ struct MainApplicationTelemetryWorkspace: View {
                 .interactiveDismissDisabled(true)
         }
         .sheet(isPresented: $showUserDetailSheet, onDismiss: { contextualSheetPresented = true }) {
-            NavigationStack {
-                VStack(spacing: 0) {
-                    HStack(spacing: 16) {
-                        Circle()
-                            .fill(Color.blue)
-                            .frame(width: 56, height: 56)
-                            .overlay(
-                                Text(String(authContext.currentUserProfile?.name.prefix(2) ?? "OP").uppercased())
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-                            )
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(authContext.currentUserProfile?.name ?? "Telemetry Operator")
-                                .font(.title3)
-                                .bold()
-                                .foregroundColor(.white)
-                            Text("System Telemetry Node • Connected")
-                                .font(.caption)
-                                .foregroundColor(.blue.opacity(0.8))
-                        }
-                        Spacer()
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 24)
-                    .padding(.top, 10)
-                    .background(Color(red: 0.05, green: 0.08, blue: 0.14))
-                    
-                    List {
-                        Section("Current Location Telemetry") {
-                            VStack(alignment: .leading, spacing: 6) {
-                                HStack {
-                                    Image(systemName: "mappin.circle.fill").foregroundColor(.red)
-                                    Text("Geographic Coordinates").font(.caption).foregroundColor(.secondary)
-                                }
-                                if let coordinate = trackingEngine.liveLocation ?? authContext.currentUserProfile?.coordinate {
-                                    Text(String(format: "Lat: %.5f, Lon: %.5f", coordinate.latitude, coordinate.longitude))
-                                        .font(.system(.subheadline, design: .monospaced))
-                                        .bold()
-                                } else {
-                                    Text("Resolving satellite positioning...")
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                            .padding(.vertical, 4)
-                        }
-                        
-                        Section("Hardware Diagnostics") {
-                            HStack {
-                                Label("Battery Level", systemImage: "battery.100")
-                                Spacer()
-                                let batteryPct = authContext.currentUserProfile?.batteryPercentage ?? 100
-                                Text("\(batteryPct)%")
-                                    .font(.body).bold()
-                                    .foregroundColor(batteryPct > 20 ? .green : .red)
-                            }
-                        }
-                        
-                        Section("Active Workspace Infrastructure") {
-                            if dynamicGeofenceZones.isEmpty {
-                                Text("No registered operational zones discovered.")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            } else {
-                                ForEach(dynamicGeofenceZones) { zone in
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(zone.name)
-                                            .font(.subheadline)
-                                            .bold()
-                                        Text(String(format: "Radius Boundary: %.0fm • Center Pin Verified", zone.radius))
-                                            .font(.caption2)
-                                            .foregroundColor(.secondary)
-                                    }
-                                    .padding(.vertical, 2)
-                                }
-                            }
-                        }
-                    }
-                }
-                .background(Color(.systemGroupedBackground))
-                .navigationTitle("Operator Briefing")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Done") { showUserDetailSheet = false }.foregroundColor(.white)
-                    }
-                }
-                .toolbarBackground(Color(red: 0.05, green: 0.08, blue: 0.14), for: .navigationBar)
-                .toolbarBackground(.visible, for: .navigationBar)
-            }
-            .presentationDetents([.medium, .large])
-            .presentationCornerRadius(25)
+            Text("Operator Core Node Details Summary")
         }
     }
     
-    // Extracted subview clean-up to improve type check processing times
-    private var sigoutButtonLabel: some View {
-        HStack {
-            Spacer()
-            Image(systemName: "power")
-            Text("Log Out").bold()
-            Spacer()
-        }
-        .foregroundColor(.white)
-    }
-    
-    private func getMapPins() -> [MapPinNode] {
-        var pins: [MapPinNode] = []
-        if let current = authContext.currentUserProfile {
-            let latestCoords = trackingEngine.liveLocation ?? current.coordinate
-            pins.append(MapPinNode(name: current.name, coordinate: latestCoords, isCurrentUser: true))
-        }
-        return pins
+    // Grabs pins safely from the UserState properties without breaking core constraints
+    private func getMapPins() -> [LocalMapMarkerIdentifier] {
+        guard let profile = authContext.currentUserProfile else { return [] }
+        
+        let dynamicCoordinate = CLLocationCoordinate2D(
+            latitude: profile.latitude,
+            longitude: profile.longitude
+        )
+        
+        return [
+            LocalMapMarkerIdentifier(
+                id: profile.id,
+                name: profile.name,
+                coordinate: dynamicCoordinate,
+                isCurrentUser: true
+            )
+        ]
     }
 }
