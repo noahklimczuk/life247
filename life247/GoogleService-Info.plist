@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>API_KEY</key>
+	<string>AIzaSyBIgX1LEXjSk4XhcOwZ96r7vLBnRG3EIjM</string>
+	<key>GCM_SENDER_ID</key>
+	<string>258108594280</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.noah.life247</string>
+	<key>PROJECT_ID</key>
+	<string>life-247-8f6da</string>
+	<key>STORAGE_BUCKET</key>
+	<string>life-247-8f6da.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:258108594280:ios:b9524877c10587f32743dd</string>
+</dict>
+</plist>
