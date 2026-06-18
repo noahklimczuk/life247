@@ -6,13 +6,31 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		4FCDD6ED2FD7983C00C70CCC /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4FCDD6EC2FD7983C00C70CCC /* FirebaseCore */; };
+		4FCDD6EF2FD7983C00C70CCC /* FirebaseDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = 4FCDD6EE2FD7983C00C70CCC /* FirebaseDatabase */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		4F1F249E2FD7902500CE6321 /* life247.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = life247.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		4FCDD6F32FD7998800C70CCC /* Exceptions for "life247" folder in "life247" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 4F1F249D2FD7902500CE6321 /* life247 */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		4F1F24A02FD7902500CE6321 /* life247 */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				4FCDD6F32FD7998800C70CCC /* Exceptions for "life247" folder in "life247" target */,
+			);
 			path = life247;
 			sourceTree = "<group>";
 		};
@@ -23,6 +41,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4FCDD6EF2FD7983C00C70CCC /* FirebaseDatabase in Frameworks */,
+				4FCDD6ED2FD7983C00C70CCC /* FirebaseCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +85,8 @@
 			);
 			name = life247;
 			packageProductDependencies = (
+				4FCDD6EC2FD7983C00C70CCC /* FirebaseCore */,
+				4FCDD6EE2FD7983C00C70CCC /* FirebaseDatabase */,
 			);
 			productName = life247;
 			productReference = 4F1F249E2FD7902500CE6321 /* life247.app */;
@@ -94,6 +116,9 @@
 			);
 			mainGroup = 4F1F24952FD7902400CE6321;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				4FCDD6EB2FD7983C00C70CCC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 4F1F249F2FD7902500CE6321 /* Products */;
 			projectDirPath = "";
@@ -256,11 +281,17 @@
 				DEVELOPMENT_TEAM = G7QJ43W8M3;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = life247/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Life 24/7";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Life 24/7 tracks your location in the background to send automated arrival/departure notifications to your circle.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Life 24/7 requires access to your location to share your real-time position with your private inner circle.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "Life 24/7 accesses motion sensors to determine if you are walking or driving to update your real-time map status.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -288,11 +319,17 @@
 				DEVELOPMENT_TEAM = G7QJ43W8M3;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = life247/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Life 24/7";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Life 24/7 tracks your location in the background to send automated arrival/departure notifications to your circle.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Life 24/7 requires access to your location to share your real-time position with your private inner circle.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "Life 24/7 accesses motion sensors to determine if you are walking or driving to update your real-time map status.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -332,6 +369,30 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		4FCDD6EB2FD7983C00C70CCC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.14.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		4FCDD6EC2FD7983C00C70CCC /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4FCDD6EB2FD7983C00C70CCC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		4FCDD6EE2FD7983C00C70CCC /* FirebaseDatabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4FCDD6EB2FD7983C00C70CCC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseDatabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 4F1F24962FD7902400CE6321 /* Project object */;
 }
