@@ -15,8 +15,8 @@
 	</dict>
 	<key>UIBackgroundModes</key>
 	<array>
-		<string>locations</string>
-		<string>remote-notifications</string>
+		<string>location</string>
+		<string>remote-notification</string>
 		<string>fetch</string>
 		<string>location</string>
 		<string>remote-notification</string>
