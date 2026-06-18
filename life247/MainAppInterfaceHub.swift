@@ -15,7 +15,7 @@ struct MainAppInterfaceHub: View {
         ZStack {
             if !splashCompleted {
                 // Calling the view cleanly without arguments since it manages its own state
-                TelemetryLoadingView()
+                TelemetryLoadingView(isFullyLoaded: $splashCompleted) 
                     .transition(.opacity)
             } else {
                 if authContext.isAuthenticated {

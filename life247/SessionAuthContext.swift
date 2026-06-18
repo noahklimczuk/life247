@@ -45,36 +45,39 @@ class SessionAuthContext: ObservableObject {
     }
     
     /// Authenticates credentials dynamically matching device contexts
-    func attemptSecureLogin(username: String, password: String) {
-        if username.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "admin" && password == "life247password" {
-            let mockToken = UUID().uuidString
-            if let tokenData = mockToken.data(using: .utf8) {
-                KeychainHelper.shared.save(tokenData, service: keychainIdentifier, account: "user_token")
-            }
+        func attemptSecureLogin(username: String, password: String) {
+            let cleanUsername = username.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             
-            UIDevice.current.isBatteryMonitoringEnabled = true
-            let dynamicBattery = Int(UIDevice.current.batteryLevel * 100)
-            let positiveBattery = dynamicBattery >= 0 ? dynamicBattery : 100
-            
-            DispatchQueue.main.async {
-                self.loginErrorMessage = nil
-                self.currentUserProfile = UserState(
-                    id: "NODE-\(Int.random(in: 100...999))",
-                    name: UIDevice.current.name,
-                    latitude: 0.0,
-                    longitude: 0.0,
-                    batteryPercentage: positiveBattery,
-                    currentSpeed: 0.0,
-                    activity: .stationary
-                )
-                self.isAuthenticated = true
-            }
-        } else {
-            DispatchQueue.main.async {
-                self.loginErrorMessage = "Invalid credentials."
+            // Updated to allow "noah" or "dash" with the new password
+            if (cleanUsername == "noah" || cleanUsername == "dash") && password == "Dec102025" {
+                let mockToken = UUID().uuidString
+                if let tokenData = mockToken.data(using: .utf8) {
+                    KeychainHelper.shared.save(tokenData, service: keychainIdentifier, account: "user_token")
+                }
+                
+                UIDevice.current.isBatteryMonitoringEnabled = true
+                let dynamicBattery = Int(UIDevice.current.batteryLevel * 100)
+                let positiveBattery = dynamicBattery >= 0 ? dynamicBattery : 100
+                
+                DispatchQueue.main.async {
+                    self.loginErrorMessage = nil
+                    self.currentUserProfile = UserState(
+                        id: "NODE-\(Int.random(in: 100...999))",
+                        name: UIDevice.current.name,
+                        latitude: 0.0,
+                        longitude: 0.0,
+                        batteryPercentage: positiveBattery,
+                        currentSpeed: 0.0,
+                        activity: .stationary
+                    )
+                    self.isAuthenticated = true
+                }
+            } else {
+                DispatchQueue.main.async {
+                    self.loginErrorMessage = "Invalid credentials."
+                }
             }
         }
-    }
     
     /// Clears active credentials data safely without depending on static engine instances
     func performSecureLogout() {

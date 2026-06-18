@@ -8,130 +8,85 @@
 import SwiftUI
 
 struct TelemetryLoadingView: View {
-    @State private var isAnimating = false
-    @State private var scanRotation: Double = 0.0
+    @Binding var isFullyLoaded: Bool
+    
+    @State private var progress: Double = 0.01
+    @State private var isAnimatingSpinner = false
     
     var body: some View {
         ZStack {
-            // High-tech deep space background gradient
-            LinearGradient(
-                colors: [Color(red: 0.03, green: 0.03, blue: 0.06), Color(red: 0.08, green: 0.06, blue: 0.12)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            // Dark purple/plum layout background matching the app's style
+            Color(red: 0.10, green: 0.05, blue: 0.18)
+                .ignoresSafeArea()
             
-            // Background Coordinate Grid Overlay
-            GeometryReader { geo in
-                Path { path in
-                    let steps = 4
-                    // Horizontal lines
-                    for i in 1..<steps {
-                        let y = geo.size.height / CGFloat(steps) * CGFloat(i)
-                        path.move(to: CGPoint(x: 0, y: y))
-                        path.addLine(to: CGPoint(x: geo.size.width, y: y))
-                    }
-                    // Vertical lines
-                    for i in 1..<steps {
-                        let x = geo.size.width / CGFloat(steps) * CGFloat(i)
-                        path.move(to: CGPoint(x: x, y: 0))
-                        path.addLine(to: CGPoint(x: x, y: geo.size.height))
-                    }
-                }
-                .stroke(Color.purple.opacity(0.04), lineWidth: 1)
-            }
-            
-            // RADAR ENGINE ENGINE LAYER
-            ZStack {
-                // Outer Telemetry Border Ring
-                Circle()
-                    .stroke(Color.purple.opacity(0.1), lineWidth: 1)
-                    .frame(width: 280, height: 280)
+            VStack(spacing: 30) {
+                Spacer()
                 
-                // --- CONCENTRIC RADAR PING WAVES ---
-                // Wave 1
-                Circle()
-                    .stroke(Color.purple.opacity(0.35), lineWidth: 2)
-                    .frame(width: isAnimating ? 280 : 40, height: isAnimating ? 280 : 40)
-                    .scaleEffect(isAnimating ? 1.0 : 0.1)
-                    .opacity(isAnimating ? 0.0 : 1.0)
-                
-                // Wave 2 (Offset delayed wave)
-                Circle()
-                    .stroke(Color.purple.opacity(0.25), lineWidth: 1.5)
-                    .frame(width: isAnimating ? 280 : 40, height: isAnimating ? 280 : 40)
-                    .scaleEffect(isAnimating ? 1.0 : 0.1)
-                    .opacity(isAnimating ? 0.0 : 1.0)
-                    .animation(.easeOut(duration: 2.2).repeatForever(autoreverses: false).delay(0.7), value: isAnimating)
-                
-                // Wave 3 (Far offset wave)
-                Circle()
-                    .stroke(Color.purple.opacity(0.15), lineWidth: 1)
-                    .frame(width: isAnimating ? 280 : 40, height: isAnimating ? 280 : 40)
-                    .scaleEffect(isAnimating ? 1.0 : 0.1)
-                    .opacity(isAnimating ? 0.0 : 1.0)
-                    .animation(.easeOut(duration: 2.2).repeatForever(autoreverses: false).delay(1.4), value: isAnimating)
-                
-                // Rotating Sweep Line
-                Circle()
-                    .fill(
-                        AngularGradient(
-                            colors: [.purple.opacity(0.25), .clear],
-                            center: .center,
-                            startAngle: .degrees(90),
-                            endAngle: .degrees(0)
-                        )
-                    )
-                    .frame(width: 280, height: 280)
-                    .rotationEffect(.degrees(scanRotation))
-                
-                // --- CORE ANCHOR ELEMENT ---
+                // Icon Container with a subtle neon purple glow
                 ZStack {
                     Circle()
-                        .fill(Color.purple.opacity(0.15))
+                        .fill(Color(red: 0.15, green: 0.05, blue: 0.25))
+                        .frame(width: 140, height: 140)
+                        .shadow(color: Color.purple.opacity(0.3), radius: 15, x: 0, y: 5)
+                    
+                    Image(systemName: "pin.fill")
+                        .font(.system(size: 52, weight: .semibold))
+                        .foregroundColor(.purple)
+                }
+                
+                // Updated layout typography
+                VStack(spacing: 12) {
+                    Text("Life 24/7")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(.white)
+                    
+                    // Core text string updated to "Initializing..."
+                    Text("Initializing system setup... (\(Int(progress * 100))%)")
+                        .font(.system(size: 15, weight: .regular))
+                        .foregroundColor(.white.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                }
+                
+                Spacer()
+                
+                // Custom Ring Loader matching the telemetry tint
+                ZStack {
+                    Circle()
+                        .stroke(Color.white.opacity(0.1), lineWidth: 4)
                         .frame(width: 54, height: 54)
                     
                     Circle()
-                        .fill(Color.purple)
-                        .frame(width: 40, height: 40)
-                        .shadow(color: .purple.opacity(0.6), radius: 10)
-                    
-                    Image(systemName: "location.north.fill")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
+                        .trim(from: 0, to: 0.3)
+                        // Fixed syntax using a nested StrokeStyle object
+                        .stroke(Color.purple, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                        .frame(width: 54, height: 54)
+                        .rotationEffect(Angle(degrees: isAnimatingSpinner ? 360 : 0))
+                        .onAppear {
+                            withAnimation(Animation.linear(duration: 1.2).repeatForever(autoreverses: false)) {
+                                isAnimatingSpinner = true
+                            }
+                            
+                            // Simulate completing the splash sequence layout safely for testing
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
+                                withAnimation {
+                                    isFullyLoaded = true
+                                }
+                            }
+                        }
                 }
-            }
-            
-            // STATUS STRINGS FOOTER
-            VStack(spacing: 8) {
-                Spacer()
+                .padding(.bottom, 20)
                 
-                Text("LOCKING COORDINATES")
-                    .font(.system(.caption, design: .monospaced))
-                    .bold()
-                    .foregroundColor(.purple)
-                    .tracking(3)
+                // Destructive/Cancel styling aligned with your side menu forms
                 
-                Text("Resolving geofence metrology systems...")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-            .padding(.bottom, 50)
-        }
-        .onAppear {
-            // Trigger the expanding radar waves
-            withAnimation(.easeOut(duration: 2.2).repeatForever(autoreverses: false)) {
-                isAnimating = true
-            }
-            // Trigger the infinite rotating radar sweep
-            withAnimation(.linear(duration: 4.0).repeatForever(autoreverses: false)) {
-                scanRotation = 360.0
             }
         }
     }
 }
 
-// MARK: - SwiftUI Preview Provider
-#Preview {
-    TelemetryLoadingView()
+struct TelemetryLoadingView_Previews: PreviewProvider {
+    static var previews: some View {
+        // Keeps the view layout fully functional inside the Xcode preview canvas
+        TelemetryLoadingView(isFullyLoaded: .constant(false))
+    }
 }
