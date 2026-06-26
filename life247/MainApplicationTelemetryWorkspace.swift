@@ -45,23 +45,43 @@ struct MainApplicationTelemetryWorkspace: View {
                         ForEach(getMapPins()) { pin in
                             Annotation(pin.name, coordinate: pin.coordinate) {
                                 VStack(spacing: 2) {
-                                    ZStack(alignment: .bottomTrailing) {
-                                        Circle()
-                                            .fill(pin.isCurrentUser ? Color.blue : Color.purple)
-                                            .frame(width: 44, height: 44)
-                                        
-                                        Text(String(pin.name.prefix(2)).uppercased())
-                                            .font(.system(size: 13, weight: .bold))
-                                            .foregroundColor(.white)
-                                            .frame(width: 44, height: 44, alignment: .center)
-                                        
-                                        if authContext.currentUserProfile != nil && pin.isCurrentUser {
+                                    if pin.isCurrentUser {
+                                        // Find My-style blue location dot: soft accuracy
+                                        // halo, white ring, solid blue core.
+                                        ZStack(alignment: .bottomTrailing) {
                                             ZStack {
-                                                Circle().fill(Color.black.opacity(0.8)).frame(width: 18, height: 18)
-                                                Text("🔋")
-                                                    .font(.system(size: 10))
+                                                Circle()
+                                                    .fill(Color.blue.opacity(0.18))
+                                                    .frame(width: 58, height: 58)
+                                                Circle()
+                                                    .fill(Color.white)
+                                                    .frame(width: 28, height: 28)
+                                                    .shadow(color: .black.opacity(0.25), radius: 3, x: 0, y: 1)
+                                                Circle()
+                                                    .fill(Color.blue)
+                                                    .frame(width: 22, height: 22)
                                             }
-                                            .offset(x: 4, y: 4)
+                                            .frame(width: 58, height: 58)
+
+                                            if authContext.currentUserProfile != nil {
+                                                ZStack {
+                                                    Circle().fill(Color.black.opacity(0.8)).frame(width: 18, height: 18)
+                                                    Text("🔋")
+                                                        .font(.system(size: 10))
+                                                }
+                                                .offset(x: 2, y: 2)
+                                            }
+                                        }
+                                    } else {
+                                        ZStack {
+                                            Circle()
+                                                .fill(Color.purple)
+                                                .frame(width: 44, height: 44)
+
+                                            Text(String(pin.name.prefix(2)).uppercased())
+                                                .font(.system(size: 13, weight: .bold))
+                                                .foregroundColor(.white)
+                                                .frame(width: 44, height: 44, alignment: .center)
                                         }
                                     }
                                     
@@ -244,7 +264,11 @@ struct MainApplicationTelemetryWorkspace: View {
                     .interactiveDismissDisabled(true)
             }
             .sheet(isPresented: $showUserDetailSheet, onDismiss: { contextualSheetPresented = true }) {
-                Text("Operator Core Node Details Summary")
+                if let profile = authContext.currentUserProfile {
+                    OperatorDetailView(profile: profile)
+                } else {
+                    Text("No operator data available")
+                }
             }
             // FIXED: Uses standard array count tracking expression which resolves the Hashable non-conformance compiler failure
             .onChange(of: dynamicGeofenceZones.count) { oldCount, newCount in

@@ -33,12 +33,15 @@ class SessionAuthContext: ObservableObject {
                 let lastLat = BackgroundTrackingEngine.shared.liveLocation?.latitude ?? 43.6532 // Default Toronto fallback
                 let lastLon = BackgroundTrackingEngine.shared.liveLocation?.longitude ?? -79.3832
 
+                // Restore the operator's display name from the saved session
+                let restoredName = self.savedDisplayName() ?? UIDevice.current.name
+
                 // ALWAYS publish UI state updates safely to the Main thread
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self else { return }
                     self.currentUserProfile = UserState(
                         id: "NODE-\(Int.random(in: 100...999))",
-                        name: UIDevice.current.name,
+                        name: restoredName,
                         latitude: lastLat,
                         longitude: lastLon,
                         batteryPercentage: positiveBattery,
@@ -64,7 +67,13 @@ class SessionAuthContext: ObservableObject {
             if let tokenData = mockToken.data(using: .utf8) {
                 KeychainHelper.shared.save(tokenData, service: keychainIdentifier, account: "user_token")
             }
-            
+
+            // Persist the operator's display name so it survives session restores
+            let displayName = cleanUsername.capitalized
+            if let nameData = displayName.data(using: .utf8) {
+                KeychainHelper.shared.save(nameData, service: keychainIdentifier, account: "user_name")
+            }
+
             UIDevice.current.isBatteryMonitoringEnabled = true
             let positiveBattery = BackgroundTrackingEngine.batteryPercentage(from: UIDevice.current.batteryLevel)
 
@@ -76,7 +85,7 @@ class SessionAuthContext: ObservableObject {
                 self.loginErrorMessage = nil
                 self.currentUserProfile = UserState(
                     id: "NODE-\(Int.random(in: 100...999))",
-                    name: UIDevice.current.name,
+                    name: displayName,
                     latitude: lastLat,
                     longitude: lastLon,
                     batteryPercentage: positiveBattery,
@@ -95,9 +104,17 @@ class SessionAuthContext: ObservableObject {
         }
     }
     
+    /// Reads the operator's saved display name from secure storage, if present.
+    private func savedDisplayName() -> String? {
+        guard let data = KeychainHelper.shared.read(service: keychainIdentifier, account: "user_name"),
+              let name = String(data: data, encoding: .utf8), !name.isEmpty else { return nil }
+        return name
+    }
+
     /// Clears active credentials data safely without depending on static engine instances
     func performSecureLogout() {
         KeychainHelper.shared.delete(service: keychainIdentifier, account: "user_token")
+        KeychainHelper.shared.delete(service: keychainIdentifier, account: "user_name")
         
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }

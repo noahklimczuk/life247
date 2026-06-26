@@ -38,7 +38,7 @@ struct TelemetryLoadingView: View {
                         .frame(width: 140, height: 140)
                         .shadow(color: Color.purple.opacity(0.3), radius: 15, x: 0, y: 5)
                     
-                    Image(systemName: "pin.fill")
+                    Image(systemName: "mappin.and.ellipse")
                         .font(.system(size: 52, weight: .semibold))
                         .foregroundColor(.purple)
                 }

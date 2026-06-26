@@ -19,6 +19,8 @@ struct TelemetryDashboardDrawer: View {
     
     @State private var chosenEmoji = "📍"
     private let emojiChoices = ["🏠", "🏢", "🏫", "🛒", "📍", "🌳", "Gym", "☕️"]
+
+    @State private var showOperatorDetail = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -47,6 +49,9 @@ struct TelemetryDashboardDrawer: View {
                                     Text("🔋 \(authContext.currentUserProfile?.batteryPercentage ?? 100)%")
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
                                 }
                                 
                                 HStack {
@@ -66,6 +71,10 @@ struct TelemetryDashboardDrawer: View {
                         }
                         .padding()
                         .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            if authContext.currentUserProfile != nil { showOperatorDetail = true }
+                        }
                         
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Saved Places (\(registeredZones.count))")
@@ -101,6 +110,11 @@ struct TelemetryDashboardDrawer: View {
                     .padding(16)
                 }
                 .tag(0)
+                .sheet(isPresented: $showOperatorDetail) {
+                    if let profile = authContext.currentUserProfile {
+                        OperatorDetailView(profile: profile)
+                    }
+                }
                 
                 // TAB 1: PLACES ADDRESS DISCOVERY CONTROLS VIEW
                 VStack(spacing: 12) {
