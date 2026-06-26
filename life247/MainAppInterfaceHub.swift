@@ -8,26 +8,20 @@ import SwiftUI
 // MARK: - App Root Coordinator Hub
 struct MainAppInterfaceHub: View {
     @EnvironmentObject var authContext: SessionAuthContext
-    @EnvironmentObject var trackingEngine: BackgroundTrackingEngine // Aligned seamlessly to your project engine type
-    @State private var splashCompleted = false
-    
+    @EnvironmentObject var trackingEngine: BackgroundTrackingEngine
+
     var body: some View {
         ZStack {
-            if !splashCompleted {
-                // Calling the view cleanly without arguments since it manages its own state
-                TelemetryLoadingView(isFullyLoaded: $splashCompleted) 
+            if authContext.isAuthenticated {
+                // Direct authenticated operators straight to the main tracking workspace map viewport
+                MainApplicationTelemetryWorkspace()
                     .transition(.opacity)
             } else {
-                if authContext.isAuthenticated {
-                    // Direct authenticated operators straight to the main tracking workspace map viewport
-                    MainApplicationTelemetryWorkspace()
-                        .transition(.opacity)
-                } else {
-                    NormalLoginView()
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
+                NormalLoginView()
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        .animation(.easeInOut(duration: 0.3), value: authContext.isAuthenticated)
     }
 }
 

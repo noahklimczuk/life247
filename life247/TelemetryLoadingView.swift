@@ -9,9 +9,12 @@ import SwiftUI
 
 struct TelemetryLoadingView: View {
     @Binding var isFullyLoaded: Bool
-    
-    @State private var progress: Double = 0.01
+
+    private let loadingDuration: TimeInterval = 4.0
+
+    @State private var progress: Double = 0.0
     @State private var isAnimatingSpinner = false
+    @State private var progressTimer: Timer?
     
     var body: some View {
         ZStack {
@@ -62,23 +65,34 @@ struct TelemetryLoadingView: View {
                         .stroke(Color.purple, style: StrokeStyle(lineWidth: 4, lineCap: .round))
                         .frame(width: 54, height: 54)
                         .rotationEffect(Angle(degrees: isAnimatingSpinner ? 360 : 0))
-                        .onAppear {
-                            withAnimation(Animation.linear(duration: 1.2).repeatForever(autoreverses: false)) {
-                                isAnimatingSpinner = true
-                            }
-                            
-                            // Simulate completing the splash sequence layout safely for testing
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
-                                withAnimation {
-                                    isFullyLoaded = true
-                                }
-                            }
+                        .onAppear { startLoadingSequence() }
+                        .onDisappear {
+                            progressTimer?.invalidate()
+                            progressTimer = nil
                         }
                 }
                 .padding(.bottom, 20)
                 
                 // Destructive/Cancel styling aligned with your side menu forms
                 
+            }
+        }
+    }
+
+    /// Spins the ring and drives the visible progress percentage from 0 to 100%
+    /// over `loadingDuration`, then signals the splash is complete.
+    private func startLoadingSequence() {
+        withAnimation(Animation.linear(duration: 1.2).repeatForever(autoreverses: false)) {
+            isAnimatingSpinner = true
+        }
+
+        let tick: TimeInterval = 0.04
+        progressTimer?.invalidate()
+        progressTimer = Timer.scheduledTimer(withTimeInterval: tick, repeats: true) { timer in
+            progress = min(1.0, progress + tick / loadingDuration)
+            if progress >= 1.0 {
+                timer.invalidate()
+                withAnimation { isFullyLoaded = true }
             }
         }
     }

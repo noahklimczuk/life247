@@ -2,24 +2,11 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Life 24/7 requires location access to seamlessly update your tracking hub and telemetry feeds.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Life 24/7 requires location access to seamlessly update your tracking hub and telemetry feeds.</string>
-	<key>CFBundleGetInfoString</key>
-	<string></string>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<true/>
-	</dict>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
 		<string>remote-notification</string>
 		<string>fetch</string>
-		<string>location</string>
-		<string>remote-notification</string>
 	</array>
 </dict>
 </plist>
