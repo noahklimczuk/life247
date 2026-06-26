@@ -6,11 +6,6 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXBuildFile section */
-		4FCDD6ED2FD7983C00C70CCC /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4FCDD6EC2FD7983C00C70CCC /* FirebaseCore */; };
-		4FCDD6EF2FD7983C00C70CCC /* FirebaseDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = 4FCDD6EE2FD7983C00C70CCC /* FirebaseDatabase */; };
-/* End PBXBuildFile section */
-
 /* Begin PBXFileReference section */
 		4F1F249E2FD7902500CE6321 /* life247.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = life247.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -41,8 +36,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4FCDD6EF2FD7983C00C70CCC /* FirebaseDatabase in Frameworks */,
-				4FCDD6ED2FD7983C00C70CCC /* FirebaseCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -53,6 +46,7 @@
 			isa = PBXGroup;
 			children = (
 				4F1F24A02FD7902500CE6321 /* life247 */,
+				4FAB24352FE467DE002C3EB6 /* Frameworks */,
 				4F1F249F2FD7902500CE6321 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -63,6 +57,13 @@
 				4F1F249E2FD7902500CE6321 /* life247.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		4FAB24352FE467DE002C3EB6 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -85,8 +86,6 @@
 			);
 			name = life247;
 			packageProductDependencies = (
-				4FCDD6EC2FD7983C00C70CCC /* FirebaseCore */,
-				4FCDD6EE2FD7983C00C70CCC /* FirebaseDatabase */,
 			);
 			productName = life247;
 			productReference = 4F1F249E2FD7902500CE6321 /* life247.app */;
@@ -117,7 +116,6 @@
 			mainGroup = 4F1F24952FD7902400CE6321;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				4FCDD6EB2FD7983C00C70CCC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 4F1F249F2FD7902500CE6321 /* Products */;
@@ -369,30 +367,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-		4FCDD6EB2FD7983C00C70CCC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 12.14.0;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		4FCDD6EC2FD7983C00C70CCC /* FirebaseCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 4FCDD6EB2FD7983C00C70CCC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseCore;
-		};
-		4FCDD6EE2FD7983C00C70CCC /* FirebaseDatabase */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 4FCDD6EB2FD7983C00C70CCC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseDatabase;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 4F1F24962FD7902400CE6321 /* Project object */;
 }

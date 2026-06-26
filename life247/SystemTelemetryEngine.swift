@@ -5,12 +5,7 @@
 //  Created by Noah Klimczuk on 2026-06-15.
 //
 
-//
-//  SystemTelemetryEngine.swift
-//  life247
-//
-//  Created by Noah Klimczuk on 2026-06-15.
-//
+
 
 import Foundation
 import SwiftUI
@@ -140,19 +135,27 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
     }
     
     func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
-        if let uuid = UUID(uuidString: region.identifier), let zone = activeGeofences.first(where: { $0.id == uuid }) {
-            dispatchLocalNotification(title: "Arrived at destination", message: "Entered your place: \(zone.name)")
-            setupZoneMetrologyTracking(for: uuid)
+            guard let uuid = UUID(uuidString: region.identifier) else { return }
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                if let zone = self.activeGeofences.first(where: { $0.id == uuid }) {
+                    self.dispatchLocalNotification(title: "Arrived at destination", message: "Entered your place: \(zone.name)")
+                    self.setupZoneMetrologyTracking(for: uuid)
+                }
+            }
         }
-    }
-    
-    func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
-        if let uuid = UUID(uuidString: region.identifier), let zone = activeGeofences.first(where: { $0.id == uuid }) {
-            dispatchLocalNotification(title: "Left region boundary", message: "Departed your place: \(zone.name)")
-            teardownZoneMetrologyTracking()
-            synchronizeTrackingState(isActive: true)
+        
+        func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
+            guard let uuid = UUID(uuidString: region.identifier) else { return }
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                if let zone = self.activeGeofences.first(where: { $0.id == uuid }) {
+                    self.dispatchLocalNotification(title: "Left region boundary", message: "Departed your place: \(zone.name)")
+                    self.teardownZoneMetrologyTracking()
+                    self.synchronizeTrackingState(isActive: true)
+                }
+            }
         }
-    }
     
     private func setupZoneMetrologyTracking(for zoneID: UUID) {
         DispatchQueue.main.async {
@@ -170,14 +173,14 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
     }
     
     private func teardownZoneMetrologyTracking() {
-        DispatchQueue.main.async {
-            self.perimeterTimer?.invalidate()
-            self.perimeterTimer = nil
-            self.currentActiveZoneID = nil
-            self.zoneArrivalTimestamp = nil
-            self.insideZoneTimerText = "00:00:00"
+            DispatchQueue.main.async {
+                self.perimeterTimer?.invalidate() // Explicitly stops run loop monitoring
+                self.perimeterTimer = nil
+                self.currentActiveZoneID = nil
+                self.zoneArrivalTimestamp = nil
+                self.insideZoneTimerText = "00:00:00"
+            }
         }
-    }
     
     private func dispatchLocalNotification(title: String, message: String) {
         let content = UNMutableNotificationContent()
@@ -192,6 +195,7 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
 class CanadaPostIntegrationService: ObservableObject {
     @Published var lookupResults: [CanadaPostSuggestion] = []
     @Published var networkOperationActive = false
+    var isProgrammaticUpdate = false // Dynamic fallback guard token
     
     // BOUND: Active production API Key assigned from your platform console configuration
     private let tokenKey = "BA23-DF97-PH91-NX26"
@@ -229,14 +233,15 @@ class CanadaPostIntegrationService: ObservableObject {
     }
     
     func processSelection(for selection: CanadaPostSuggestion, currentSearchText: Binding<String>, completion: @escaping (CLLocationCoordinate2D?) -> Void) {
-        if selection.nextStep.uppercased() == "RETRIEVE" {
-            self.executeRemoteRetrieveCall(id: selection.idValue, completion: completion)
-        } else {
-            currentSearchText.wrappedValue = selection.text
-            self.executeRemoteSearchCall(text: selection.text, lastId: selection.idValue)
-            completion(nil)
+            if selection.nextStep.uppercased() == "RETRIEVE" {
+                self.executeRemoteRetrieveCall(id: selection.idValue, completion: completion)
+            } else {
+                self.isProgrammaticUpdate = true
+                currentSearchText.wrappedValue = selection.text
+                self.executeRemoteSearchCall(text: selection.text, lastId: selection.idValue)
+                completion(nil)
+            }
         }
-    }
     
     private func executeRemoteRetrieveCall(id: String, completion: @escaping (CLLocationCoordinate2D?) -> Void) {
         var components = URLComponents(string: "https://ws1.postescanada-canadapost.ca/AddressComplete/Interactive/Retrieve/v2.11/json3ex.ws")

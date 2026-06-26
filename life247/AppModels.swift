@@ -2,8 +2,6 @@
 //  AppModels.swift
 //  life247
 //
-//  Created by Noah Klimczuk on 2026-06-15.
-//
 
 import Foundation
 import CoreLocation
@@ -34,7 +32,7 @@ struct GeofenceZone: Identifiable, Codable {
     let latitude: Double
     let longitude: Double
     let radius: Double
-    let emojiIcon: String // Custom selected emoji icon property
+    let emojiIcon: String
     
     var coordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
@@ -49,7 +47,12 @@ struct TelemetryStop: Identifiable, Codable {
     let duration: TimeInterval
     
     enum CodingKeys: String, CodingKey {
-        case id, latitude, longitude, arrivalTime, departureTime, duration
+        case id
+        case latitude
+        case longitude
+        case arrivalTime
+        case departureTime
+        case duration
     }
     
     init(id: UUID = UUID(), coordinate: CLLocationCoordinate2D, arrivalTime: Date, departureTime: Date, duration: TimeInterval) {
@@ -62,13 +65,13 @@ struct TelemetryStop: Identifiable, Codable {
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(UUID.self, forKey: .id)
+        self.id = try container.decode(UUID.self, forKey: .id)
         let lat = try container.decode(Double.self, forKey: .latitude)
         let lon = try container.decode(Double.self, forKey: .longitude)
-        coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
-        arrivalTime = try container.decode(Date.self, forKey: .arrivalTime)
-        departureTime = try container.decode(Date.self, forKey: .departureTime)
-        duration = try container.decode(TimeInterval.self, forKey: .duration)
+        self.coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
+        self.arrivalTime = try container.decode(Date.self, forKey: .arrivalTime)
+        self.departureTime = try container.decode(Date.self, forKey: .departureTime)
+        self.duration = try container.decode(TimeInterval.self, forKey: .duration)
     }
     
     func encode(to encoder: Encoder) throws {
@@ -90,7 +93,12 @@ struct HistoricalRouteDrive: Identifiable, Codable {
     let breadcrumbs: [CLLocationCoordinate2D]
     
     enum CodingKeys: String, CodingKey {
-        case id, startTime, endTime, totalDistanceMeters, breadcrumbsLatitudes, breadcrumbsLongitudes
+        case id
+        case startTime
+        case endTime
+        case totalDistanceMeters
+        case breadcrumbsLatitudes
+        case breadcrumbsLongitudes
     }
     
     init(id: UUID = UUID(), startTime: Date, endTime: Date, totalDistanceMeters: Double, breadcrumbs: [CLLocationCoordinate2D]) {
@@ -103,10 +111,10 @@ struct HistoricalRouteDrive: Identifiable, Codable {
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(UUID.self, forKey: .id)
-        startTime = try container.decode(Date.self, forKey: .startTime)
-        endTime = try container.decode(Date.self, forKey: .endTime)
-        totalDistanceMeters = try container.decode(Double.self, forKey: .totalDistanceMeters)
+        self.id = try container.decode(UUID.self, forKey: .id)
+        self.startTime = try container.decode(Date.self, forKey: .startTime)
+        self.endTime = try container.decode(Date.self, forKey: .endTime)
+        self.totalDistanceMeters = try container.decode(Double.self, forKey: .totalDistanceMeters)
         
         let lats = try container.decode([Double].self, forKey: .breadcrumbsLatitudes)
         let lons = try container.decode([Double].self, forKey: .breadcrumbsLongitudes)

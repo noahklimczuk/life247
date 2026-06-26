@@ -113,10 +113,14 @@ struct TelemetryDashboardDrawer: View {
                             .autocapitalization(.none)
                             .disableAutocorrection(true)
                             .onChange(of: postalSearchFieldText) { _, newVal in
-                                if newVal.count > 2 {
-                                    canadaPostService.executeRemoteSearchCall(text: newVal)
+                                    if canadaPostService.isProgrammaticUpdate {
+                                        canadaPostService.isProgrammaticUpdate = false // Absorb single cycle event update safely
+                                        return
+                                    }
+                                    if newVal.count > 2 {
+                                        canadaPostService.executeRemoteSearchCall(text: newVal)
+                                    }
                                 }
-                            }
                     }
                     .padding()
                     .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemBackground)))

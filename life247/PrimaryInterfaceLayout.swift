@@ -8,8 +8,8 @@
 import SwiftUI
 
 struct RootRouterView: View {
-    @StateObject private var authContext = SessionAuthContext()
-    @StateObject private var trackingEngine = BackgroundTrackingEngine.shared
+    @EnvironmentObject var authContext: SessionAuthContext
+    @EnvironmentObject var trackingEngine: BackgroundTrackingEngine
     @State private var renderingSplashSequence = true
     
     var body: some View {
@@ -17,14 +17,7 @@ struct RootRouterView: View {
             if renderingSplashSequence {
                 SplashGraphicDisplayView(isActive: $renderingSplashSequence)
             } else {
-                if authContext.isAuthenticated {
-                    MainApplicationTelemetryWorkspace()
-                        .environmentObject(authContext)
-                        .environmentObject(trackingEngine)
-                } else {
-                    MainAppInterfaceHub()
-                        .environmentObject(authContext)
-                }
+                MainAppInterfaceHub() // Routes smoothly down to Core Telemetry spaces
             }
         }
         .onAppear {

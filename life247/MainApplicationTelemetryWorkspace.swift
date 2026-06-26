@@ -18,7 +18,7 @@ struct LocalMapMarkerIdentifier: Identifiable {
 
 struct MainApplicationTelemetryWorkspace: View {
     @EnvironmentObject var authContext: SessionAuthContext
-    @EnvironmentObject var trackingEngine: BackgroundTrackingEngine // Matches your actual project tracking type scope
+    @EnvironmentObject var trackingEngine: BackgroundTrackingEngine
     
     @State private var viewportCamera: MapCameraPosition = .userLocation(fallback: .automatic)
     @State private var contextualSheetPresented = true
@@ -87,7 +87,7 @@ struct MainApplicationTelemetryWorkspace: View {
                                     ZStack {
                                         Circle().fill(Color.purple.opacity(0.2)).frame(width: 38, height: 38)
                                         Circle().fill(Color.white).frame(width: 30, height: 30).shadow(radius: 2)
-                                        Text("📍").font(.system(size: 18))
+                                        Text(place.emojiIcon.isEmpty ? "📍" : place.emojiIcon).font(.system(size: 18))
                                     }
                                     Text(place.name.prefix(12) + (place.name.count > 12 ? "..." : ""))
                                         .font(.system(size: 10, weight: .semibold))
@@ -236,20 +236,30 @@ struct MainApplicationTelemetryWorkspace: View {
                 .ignoresSafeArea(edges: .vertical)
                 .offset(x: showHamburgerMenu ? 0 : -menuWidth)
             }
-        }
-        .sheet(isPresented: $contextualSheetPresented) {
-            TelemetryDashboardDrawer(registeredZones: $dynamicGeofenceZones)
-                .presentationDetents([.height(88), .medium, .large])
-                .presentationBackgroundInteraction(.enabled(upThrough: .medium))
-                .presentationCornerRadius(30)
-                .interactiveDismissDisabled(true)
-        }
-        .sheet(isPresented: $showUserDetailSheet, onDismiss: { contextualSheetPresented = true }) {
-            Text("Operator Core Node Details Summary")
+            .sheet(isPresented: $contextualSheetPresented) {
+                TelemetryDashboardDrawer(registeredZones: $dynamicGeofenceZones)
+                    .presentationDetents([.height(88), .medium, .large])
+                    .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+                    .presentationCornerRadius(30)
+                    .interactiveDismissDisabled(true)
+            }
+            .sheet(isPresented: $showUserDetailSheet, onDismiss: { contextualSheetPresented = true }) {
+                Text("Operator Core Node Details Summary")
+            }
+            // FIXED: Uses standard array count tracking expression which resolves the Hashable non-conformance compiler failure
+            .onChange(of: dynamicGeofenceZones.count) { oldCount, newCount in
+                for zone in dynamicGeofenceZones {
+                    if !trackingEngine.activeGeofences.contains(where: { $0.id == zone.id }) {
+                        trackingEngine.registerGeofenceHardwareBoundary(for: zone)
+                    }
+                }
+            }
+            .task {
+                self.dynamicGeofenceZones = trackingEngine.activeGeofences
+            }
         }
     }
     
-    // Grabs pins safely from the UserState properties without breaking core constraints
     private func getMapPins() -> [LocalMapMarkerIdentifier] {
         guard let profile = authContext.currentUserProfile else { return [] }
         
