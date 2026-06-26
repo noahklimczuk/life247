@@ -75,37 +75,6 @@ struct TelemetryDashboardDrawer: View {
                         .onTapGesture {
                             if authContext.currentUserProfile != nil { showOperatorDetail = true }
                         }
-                        
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Saved Places (\(registeredZones.count))")
-                                .font(.subheadline)
-                                .bold()
-                                .foregroundColor(.secondary)
-                            
-                            if registeredZones.isEmpty {
-                                Text("No places monitored currently.")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                    .padding(.vertical, 8)
-                            } else {
-                                ForEach(registeredZones) { zone in
-                                    HStack {
-                                        Text(zone.emojiIcon).font(.title3)
-                                        Text(zone.name).font(.callout).lineLimit(1)
-                                        Spacer()
-                                        Button(action: {
-                                            trackingEngine.clearGeofenceZone(id: zone.id)
-                                            registeredZones.removeAll(where: { $0.id == zone.id })
-                                        }) {
-                                            Image(systemName: "trash").foregroundColor(.red)
-                                        }
-                                    }
-                                    .padding(.vertical, 4)
-                                }
-                            }
-                        }
-                        .padding()
-                        .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
                     }
                     .padding(16)
                 }
@@ -159,7 +128,39 @@ struct TelemetryDashboardDrawer: View {
                             .padding(.horizontal, 18)
                         }
                     }
-                    
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Saved Places (\(registeredZones.count))")
+                            .font(.subheadline)
+                            .bold()
+                            .foregroundColor(.secondary)
+
+                        if registeredZones.isEmpty {
+                            Text("No places monitored currently.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .padding(.vertical, 8)
+                        } else {
+                            ForEach(registeredZones) { zone in
+                                HStack {
+                                    Text(zone.emojiIcon).font(.title3)
+                                    Text(zone.name).font(.callout).lineLimit(1)
+                                    Spacer()
+                                    Button(action: {
+                                        trackingEngine.clearGeofenceZone(id: zone.id)
+                                        registeredZones.removeAll(where: { $0.id == zone.id })
+                                    }) {
+                                        Image(systemName: "trash").foregroundColor(.red)
+                                    }
+                                }
+                                .padding(.vertical, 4)
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
+                    .padding(.horizontal, 16)
+
                     if appleLookupService.networkOperationActive {
                         ProgressView().tint(.purple).padding()
                     }

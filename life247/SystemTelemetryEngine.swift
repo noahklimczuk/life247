@@ -30,6 +30,7 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
     private var incrementalDistanceMeters: Double = 0.0
     private var perimeterTimer: Timer?
     private var zoneArrivalTimestamp: Date?
+    private let persistedGeofencesKey = "life247.savedGeofences"
     
     override private init() {
         super.init()
@@ -76,6 +77,12 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
         locationManager.requestAlwaysAuthorization()
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
+
+    /// Keeps `liveLocation` populated with the operator's current position so the
+    /// rest of the UI (current address, map marker) reflects where they are now.
+    func beginAmbientLocationUpdates() {
+        locationManager.startUpdatingLocation()
+    }
     
     func synchronizeTrackingState(isActive varNewState: Bool) {
         DispatchQueue.main.async {
@@ -104,6 +111,7 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
             region.notifyOnEntry = true
             region.notifyOnExit = true
             self.locationManager.startMonitoring(for: region)
+            self.persistGeofences()
         }
     }
     
@@ -116,6 +124,29 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
             if self.currentActiveZoneID == id {
                 self.teardownZoneMetrologyTracking()
             }
+            self.persistGeofences()
+        }
+    }
+
+    /// Persists the current saved places to disk so they survive app shutdown.
+    private func persistGeofences() {
+        if let data = try? JSONEncoder().encode(activeGeofences) {
+            UserDefaults.standard.set(data, forKey: persistedGeofencesKey)
+        }
+    }
+
+    /// Reloads previously saved places and re-arms their geofence monitoring.
+    /// Safe to call repeatedly; already-active zones are skipped.
+    func restorePersistedGeofences() {
+        guard let data = UserDefaults.standard.data(forKey: persistedGeofencesKey),
+              let zones = try? JSONDecoder().decode([GeofenceZone].self, from: data) else { return }
+
+        for zone in zones where !activeGeofences.contains(where: { $0.id == zone.id }) {
+            activeGeofences.append(zone)
+            let region = CLCircularRegion(center: zone.coordinate, radius: zone.radius, identifier: zone.id.uuidString)
+            region.notifyOnEntry = true
+            region.notifyOnExit = true
+            locationManager.startMonitoring(for: region)
         }
     }
     

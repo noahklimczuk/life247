@@ -13,11 +13,18 @@ import CoreLocation
 struct OperatorDetailView: View {
     let profile: UserState
 
+    @EnvironmentObject var trackingEngine: BackgroundTrackingEngine
     @Environment(\.dismiss) private var dismiss
     @State private var resolvedAddress = "Resolving address…"
     @State private var now = Date()
 
     private let ticker = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    /// The operator's current position, preferring the live GPS fix and falling
+    /// back to the coordinates captured on the profile.
+    private var currentCoordinate: CLLocationCoordinate2D {
+        trackingEngine.liveLocation ?? profile.coordinate
+    }
 
     var body: some View {
         NavigationStack {
@@ -45,7 +52,7 @@ struct OperatorDetailView: View {
                     detailRow(icon: "clock", title: "Time at location", value: dwellText)
                     detailRow(icon: "location",
                               title: "Coordinates",
-                              value: String(format: "%.5f, %.5f", profile.latitude, profile.longitude))
+                              value: String(format: "%.5f, %.5f", currentCoordinate.latitude, currentCoordinate.longitude))
                 }
             }
             .navigationTitle("Operator Details")
@@ -58,6 +65,8 @@ struct OperatorDetailView: View {
         }
         .onReceive(ticker) { now = $0 }
         .onAppear(perform: resolveAddress)
+        .onChange(of: trackingEngine.liveLocation?.latitude) { _, _ in resolveAddress() }
+        .onChange(of: trackingEngine.liveLocation?.longitude) { _, _ in resolveAddress() }
     }
 
     /// Human-readable elapsed time since the operator arrived at the location.
@@ -87,7 +96,8 @@ struct OperatorDetailView: View {
     }
 
     private func resolveAddress() {
-        let location = CLLocation(latitude: profile.latitude, longitude: profile.longitude)
+        let coordinate = currentCoordinate
+        let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
         CLGeocoder().reverseGeocodeLocation(location) { placemarks, _ in
             guard let placemark = placemarks?.first else {
                 DispatchQueue.main.async { self.resolvedAddress = "Address unavailable" }
