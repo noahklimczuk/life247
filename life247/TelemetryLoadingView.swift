@@ -6,15 +6,21 @@
 //
 
 import SwiftUI
+import Combine
 
 struct TelemetryLoadingView: View {
     @Binding var isFullyLoaded: Bool
 
     private let loadingDuration: TimeInterval = 4.0
+    private let tickInterval: TimeInterval = 0.04
+
+    /// SwiftUI-managed timer. Its subscription is owned by `.onReceive` and is
+    /// cancelled automatically when the view leaves the hierarchy, so it can
+    /// never fire into freed `@State` storage after the splash completes.
+    private let progressTimer = Timer.publish(every: 0.04, on: .main, in: .common).autoconnect()
 
     @State private var progress: Double = 0.0
     @State private var isAnimatingSpinner = false
-    @State private var progressTimer: Timer?
     
     var body: some View {
         ZStack {
@@ -65,11 +71,7 @@ struct TelemetryLoadingView: View {
                         .stroke(Color.purple, style: StrokeStyle(lineWidth: 4, lineCap: .round))
                         .frame(width: 54, height: 54)
                         .rotationEffect(Angle(degrees: isAnimatingSpinner ? 360 : 0))
-                        .onAppear { startLoadingSequence() }
-                        .onDisappear {
-                            progressTimer?.invalidate()
-                            progressTimer = nil
-                        }
+                        .onAppear { startSpinner() }
                 }
                 .padding(.bottom, 20)
                 
@@ -77,23 +79,22 @@ struct TelemetryLoadingView: View {
                 
             }
         }
-    }
-
-    /// Spins the ring and drives the visible progress percentage from 0 to 100%
-    /// over `loadingDuration`, then signals the splash is complete.
-    private func startLoadingSequence() {
-        withAnimation(Animation.linear(duration: 1.2).repeatForever(autoreverses: false)) {
-            isAnimatingSpinner = true
-        }
-
-        let tick: TimeInterval = 0.04
-        progressTimer?.invalidate()
-        progressTimer = Timer.scheduledTimer(withTimeInterval: tick, repeats: true) { timer in
-            progress = min(1.0, progress + tick / loadingDuration)
+        // Drives the visible progress percentage from 0 to 100% over
+        // `loadingDuration`. `.onReceive` owns the subscription, so the timer
+        // stops the moment the splash is removed from the hierarchy.
+        .onReceive(progressTimer) { _ in
+            guard progress < 1.0 else { return }
+            progress = min(1.0, progress + tickInterval / loadingDuration)
             if progress >= 1.0 {
-                timer.invalidate()
                 withAnimation { isFullyLoaded = true }
             }
+        }
+    }
+
+    /// Spins the ring continuously while the splash is on screen.
+    private func startSpinner() {
+        withAnimation(Animation.linear(duration: 1.2).repeatForever(autoreverses: false)) {
+            isAnimatingSpinner = true
         }
     }
 }
