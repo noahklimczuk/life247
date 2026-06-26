@@ -27,13 +27,12 @@ class SessionAuthContext: ObservableObject {
                 
                 // Track dynamic battery metrics directly from the device hardware state
                 UIDevice.current.isBatteryMonitoringEnabled = true
-                let dynamicBattery = Int(UIDevice.current.batteryLevel * 100)
-                let positiveBattery = dynamicBattery >= 0 ? dynamicBattery : 100
-                
+                let positiveBattery = BackgroundTrackingEngine.batteryPercentage(from: UIDevice.current.batteryLevel)
+
                 // Fetch last known location from engine fallback if available instead of hardcoding 0.0
                 let lastLat = BackgroundTrackingEngine.shared.liveLocation?.latitude ?? 43.6532 // Default Toronto fallback
                 let lastLon = BackgroundTrackingEngine.shared.liveLocation?.longitude ?? -79.3832
-                
+
                 // ALWAYS publish UI state updates safely to the Main thread
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self else { return }
@@ -47,6 +46,9 @@ class SessionAuthContext: ObservableObject {
                         activity: .stationary
                     )
                     self.isAuthenticated = true
+
+                    // Keep live battery telemetry running for restored sessions too
+                    BackgroundTrackingEngine.shared.startLiveBatteryMonitoring(authContext: self)
                 }
             }
         }
@@ -64,9 +66,8 @@ class SessionAuthContext: ObservableObject {
             }
             
             UIDevice.current.isBatteryMonitoringEnabled = true
-            let dynamicBattery = Int(UIDevice.current.batteryLevel * 100)
-            let positiveBattery = dynamicBattery >= 0 ? dynamicBattery : 100
-            
+            let positiveBattery = BackgroundTrackingEngine.batteryPercentage(from: UIDevice.current.batteryLevel)
+
             let lastLat = BackgroundTrackingEngine.shared.liveLocation?.latitude ?? 43.6532
             let lastLon = BackgroundTrackingEngine.shared.liveLocation?.longitude ?? -79.3832
             

@@ -10,6 +10,8 @@ import SwiftUI
 import Combine
 import UserNotifications
 import MapKit
+import CoreLocation
+import UIKit
 
 class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDelegate {
     static let shared = BackgroundTrackingEngine()
@@ -45,7 +47,7 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
         
         let initialLevel = UIDevice.current.batteryLevel
         if var profile = authContext.currentUserProfile {
-            profile.batteryPercentage = initialLevel < 0 ? 84 : Int(initialLevel * 100)
+            profile.batteryPercentage = Self.batteryPercentage(from: initialLevel)
             authContext.currentUserProfile = profile
         }
         
@@ -56,7 +58,7 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
             queue: .main
         ) { _ in
             let currentLevel = UIDevice.current.batteryLevel
-            let batteryPct = currentLevel < 0 ? 84 : Int(currentLevel * 100)
+            let batteryPct = Self.batteryPercentage(from: currentLevel)
             
             if var updatedProfile = authContext.currentUserProfile {
                 updatedProfile.batteryPercentage = batteryPct
@@ -65,6 +67,11 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
         }
     }
     
+    /// Converts a raw `UIDevice` battery level (-1 when unknown, e.g. Simulator) into a 0-100 percentage.
+    static func batteryPercentage(from level: Float) -> Int {
+        level < 0 ? 100 : Int(level * 100)
+    }
+
     func initializeSystemHardwareAccess() {
         locationManager.requestAlwaysAuthorization()
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
