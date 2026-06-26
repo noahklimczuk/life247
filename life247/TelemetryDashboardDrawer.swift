@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import CoreLocation
 import MapKit
 
 struct TelemetryDashboardDrawer: View {
@@ -15,10 +14,9 @@ struct TelemetryDashboardDrawer: View {
     @Binding var registeredZones: [GeofenceZone]
     
     @State private var activeTabPaneIndex = 0
-    @StateObject private var canadaPostService = CanadaPostIntegrationService()
+    @StateObject private var appleLookupService = AppleAddressLookupService()
     @State private var postalSearchFieldText = ""
     
-    // Emojis selection engine state variables
     @State private var chosenEmoji = "📍"
     private let emojiChoices = ["🏠", "🏢", "🏫", "🛒", "📍", "🌳", "Gym", "☕️"]
     
@@ -69,9 +67,8 @@ struct TelemetryDashboardDrawer: View {
                         .padding()
                         .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
                         
-                        // Active System Tracked History Metrics View Wrapper
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("Geofences Array Status (\(registeredZones.count))")
+                            Text("Saved Places (\(registeredZones.count))")
                                 .font(.subheadline)
                                 .bold()
                                 .foregroundColor(.secondary)
@@ -109,25 +106,24 @@ struct TelemetryDashboardDrawer: View {
                 VStack(spacing: 12) {
                     HStack {
                         Image(systemName: "magnifyingglass").foregroundColor(.secondary)
-                        TextField("Lookup Place Address via Canada Post...", text: $postalSearchFieldText)
+                        TextField("Lookup Address", text: $postalSearchFieldText)
                             .autocapitalization(.none)
                             .disableAutocorrection(true)
-                            .onChange(of: postalSearchFieldText) { _, newVal in
-                                    if canadaPostService.isProgrammaticUpdate {
-                                        canadaPostService.isProgrammaticUpdate = false // Absorb single cycle event update safely
-                                        return
-                                    }
-                                    if newVal.count > 2 {
-                                        canadaPostService.executeRemoteSearchCall(text: newVal)
-                                    }
+                            .onChange(of: postalSearchFieldText) {
+                                if appleLookupService.isProgrammaticUpdate {
+                                    appleLookupService.isProgrammaticUpdate = false
+                                    return
                                 }
+                                if postalSearchFieldText.count > 2 {
+                                    appleLookupService.executeRemoteSearchCall(text: postalSearchFieldText)
+                                }
+                            }
                     }
                     .padding()
                     .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemBackground)))
                     .padding(.horizontal, 16)
                     .padding(.top, 12)
                     
-                    // Custom Horizontal Emoji Selector Container View Layer
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Assign Place Icon Marker Emoji:")
                             .font(.caption)
@@ -150,18 +146,18 @@ struct TelemetryDashboardDrawer: View {
                         }
                     }
                     
-                    if canadaPostService.networkOperationActive {
+                    if appleLookupService.networkOperationActive {
                         ProgressView().tint(.purple).padding()
                     }
                     
-                    List(canadaPostService.lookupResults) { match in
+                    List(appleLookupService.lookupResults, id: \.self) { match in
                         Button(action: { commitTargetGeofenceZone(from: match) }) {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(match.text)
+                                Text(match.title)
                                     .font(.subheadline)
                                     .bold()
                                     .foregroundColor(.primary)
-                                Text(match.description)
+                                Text(match.subtitle)
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
@@ -209,14 +205,20 @@ struct TelemetryDashboardDrawer: View {
         .background(Color(.systemBackground))
     }
     
-    // Core function explicitly included at struct level scope
-    private func commitTargetGeofenceZone(from selection: CanadaPostSuggestion) {
-        canadaPostService.processSelection(for: selection, currentSearchText: $postalSearchFieldText) { coordinatedMetrics in
-            guard let coords = coordinatedMetrics else { return }
+    private func commitTargetGeofenceZone(from selection: MKLocalSearchCompletion) {
+        appleLookupService.isProgrammaticUpdate = true
+        self.postalSearchFieldText = selection.title
+        
+        let searchRequest = MKLocalSearch.Request(completion: selection)
+        let search = MKLocalSearch(request: searchRequest)
+        
+        search.start { response, error in
+            guard let coords = response?.mapItems.first?.location.coordinate else { return }
+            
             DispatchQueue.main.async {
                 let generatedZone = GeofenceZone(
                     id: UUID(),
-                    name: selection.text,
+                    name: selection.title,
                     latitude: coords.latitude,
                     longitude: coords.longitude,
                     radius: 150.0,
@@ -225,14 +227,13 @@ struct TelemetryDashboardDrawer: View {
                 self.registeredZones.append(generatedZone)
                 self.trackingEngine.registerGeofenceHardwareBoundary(for: generatedZone)
                 self.postalSearchFieldText = ""
-                self.canadaPostService.lookupResults = []
+                self.appleLookupService.lookupResults = []
                 withAnimation { self.activeTabPaneIndex = 0 }
             }
         }
     }
 }
 
-// Fixed missing TabButton explicitly defined within file scope to guarantee visibility
 struct TabButton: View {
     let title: String
     let index: Int
