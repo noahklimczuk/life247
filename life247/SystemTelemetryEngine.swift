@@ -31,13 +31,13 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
     private var perimeterTimer: Timer?
     private var zoneArrivalTimestamp: Date?
     private let persistedGeofencesKey = "life247.savedGeofences"
+    private var wantsAmbientUpdates = false
     
     override private init() {
         super.init()
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyBestForNavigation
         locationManager.distanceFilter = 5.0
-        locationManager.allowsBackgroundLocationUpdates = true
         locationManager.pausesLocationUpdatesAutomatically = false
         
         UIDevice.current.isBatteryMonitoringEnabled = true
@@ -80,8 +80,32 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
 
     /// Keeps `liveLocation` populated with the operator's current position so the
     /// rest of the UI (current address, map marker) reflects where they are now.
+    /// Defers the actual start until location authorization is granted, so it is
+    /// safe to call at launch before the permission prompt is answered.
     func beginAmbientLocationUpdates() {
-        locationManager.startUpdatingLocation()
+        wantsAmbientUpdates = true
+        startLocationUpdatesIfAuthorized()
+    }
+
+    /// Enables background updates (only when granted Always) and starts the
+    /// location stream once the app is authorized. No-op until then.
+    private func startLocationUpdatesIfAuthorized() {
+        let status = locationManager.authorizationStatus
+        guard status == .authorizedAlways || status == .authorizedWhenInUse else {
+            locationManager.requestAlwaysAuthorization()
+            return
+        }
+        if status == .authorizedAlways {
+            locationManager.allowsBackgroundLocationUpdates = true
+        }
+        if wantsAmbientUpdates || liveTrackingActive {
+            locationManager.startUpdatingLocation()
+        }
+    }
+
+    /// Re-applies pending location requests once the user answers the prompt.
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        startLocationUpdatesIfAuthorized()
     }
     
     func synchronizeTrackingState(isActive varNewState: Bool) {
@@ -91,7 +115,7 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
                 self.pathSequence = []
                 self.incrementalDistanceMeters = 0.0
                 self.liveTrackingActive = true
-                self.locationManager.startUpdatingLocation()
+                self.startLocationUpdatesIfAuthorized()
             } else {
                 self.locationManager.stopUpdatingLocation()
                 self.liveTrackingActive = false
