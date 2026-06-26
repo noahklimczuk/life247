@@ -279,6 +279,8 @@ struct MainApplicationTelemetryWorkspace: View {
                 }
             }
             .task {
+                trackingEngine.restorePersistedGeofences()
+                trackingEngine.beginAmbientLocationUpdates()
                 self.dynamicGeofenceZones = trackingEngine.activeGeofences
             }
         }
@@ -287,7 +289,7 @@ struct MainApplicationTelemetryWorkspace: View {
     private func getMapPins() -> [LocalMapMarkerIdentifier] {
         guard let profile = authContext.currentUserProfile else { return [] }
         
-        let dynamicCoordinate = CLLocationCoordinate2D(
+        let dynamicCoordinate = trackingEngine.liveLocation ?? CLLocationCoordinate2D(
             latitude: profile.latitude,
             longitude: profile.longitude
         )
