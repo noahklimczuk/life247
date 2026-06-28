@@ -11,6 +11,7 @@ import MapKit
 struct TelemetryDashboardDrawer: View {
     @EnvironmentObject var authContext: SessionAuthContext
     @EnvironmentObject var trackingEngine: BackgroundTrackingEngine
+    @EnvironmentObject var circleSync: CircleSyncService
     @Binding var registeredZones: [GeofenceZone]
     
     @State private var activeTabPaneIndex = 0
@@ -20,7 +21,18 @@ struct TelemetryDashboardDrawer: View {
     @State private var chosenEmoji = "📍"
     private let emojiChoices = ["🏠", "🏢", "🏫", "🛒", "📍", "🌳", "Gym", "☕️"]
 
-    @State private var showOperatorDetail = false
+    @State private var selectedMember: UserState?
+
+    /// All circle members to display, ensuring the current operator always
+    /// appears even before their first position reaches the shared database.
+    private var circleRoster: [UserState] {
+        var list = circleSync.members
+        if let me = authContext.currentUserProfile,
+           !list.contains(where: { $0.name.lowercased() == me.name.lowercased() }) {
+            list.insert(me, at: 0)
+        }
+        return list
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -37,52 +49,68 @@ struct TelemetryDashboardDrawer: View {
                 // TAB 0: CIRCLES OVERVIEW PANEL
                 ScrollView {
                     VStack(spacing: 16) {
-                        HStack(spacing: 16) {
-                            Circle().fill(Color.purple.opacity(0.15)).frame(width: 48, height: 48)
-                                .overlay(Text(String(authContext.currentUserProfile?.name.prefix(2) ?? "OP").uppercased()).foregroundColor(.purple).bold())
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    Text(authContext.currentUserProfile?.name ?? "Operator")
-                                        .font(.headline)
-                                    Spacer()
-                                    Text("🔋 \(authContext.currentUserProfile?.batteryPercentage ?? 100)%")
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                                
-                                HStack {
-                                    Image(systemName: "waveform.path.ecg").foregroundColor(.green)
-                                    Text(trackingEngine.liveTrackingActive ? "Live Tracking Active" : "System Stationary")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    Spacer()
-                                    
-                                    let rateInKPH = Int(max(0, (authContext.currentUserProfile?.currentSpeed ?? 0.0) * 3.6))
-                                    Text("\(rateInKPH) km/h")
-                                        .font(.caption)
-                                        .bold()
-                                        .foregroundColor(.purple)
+                        ForEach(circleRoster) { member in
+                            let isMe = member.name.lowercased() == (authContext.currentUserProfile?.name.lowercased() ?? "")
+                            HStack(spacing: 16) {
+                                Circle().fill(Color.purple.opacity(0.15)).frame(width: 48, height: 48)
+                                    .overlay(Text(String(member.name.prefix(2)).uppercased()).foregroundColor(.purple).bold())
+
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack {
+                                        Text(member.name)
+                                            .font(.headline)
+                                        if isMe {
+                                            Text("You")
+                                                .font(.caption2)
+                                                .bold()
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 2)
+                                                .background(Capsule().fill(Color.purple.opacity(0.15)))
+                                                .foregroundColor(.purple)
+                                        }
+                                        Spacer()
+                                        Text("🔋 \(member.batteryPercentage)%")
+                                            .font(.subheadline)
+                                            .foregroundColor(.secondary)
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+
+                                    HStack {
+                                        Image(systemName: "waveform.path.ecg").foregroundColor(.green)
+                                        Text(isMe && trackingEngine.liveTrackingActive ? "Live Tracking Active" : member.activity.rawValue)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                        Spacer()
+
+                                        let rateInKPH = Int(max(0, member.currentSpeed * 3.6))
+                                        Text("\(rateInKPH) km/h")
+                                            .font(.caption)
+                                            .bold()
+                                            .foregroundColor(.purple)
+                                    }
                                 }
                             }
+                            .padding()
+                            .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
+                            .contentShape(Rectangle())
+                            .onTapGesture { selectedMember = member }
                         }
-                        .padding()
-                        .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            if authContext.currentUserProfile != nil { showOperatorDetail = true }
+
+                        if circleRoster.isEmpty {
+                            Text("No circle members online yet.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .padding(.vertical, 20)
                         }
                     }
                     .padding(16)
                 }
                 .tag(0)
-                .sheet(isPresented: $showOperatorDetail) {
-                    if let profile = authContext.currentUserProfile {
-                        OperatorDetailView(profile: profile)
-                    }
+                .sheet(item: $selectedMember) { member in
+                    let isMe = member.name.lowercased() == (authContext.currentUserProfile?.name.lowercased() ?? "")
+                    OperatorDetailView(profile: member, isCurrentUser: isMe)
                 }
                 
                 // TAB 1: PLACES ADDRESS DISCOVERY CONTROLS VIEW

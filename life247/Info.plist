@@ -8,5 +8,7 @@
 		<string>remote-notification</string>
 		<string>fetch</string>
 	</array>
+	<key>FirebaseDatabaseURL</key>
+	<string>https://life-247-8f6da-default-rtdb.firebaseio.com</string>
 </dict>
 </plist>

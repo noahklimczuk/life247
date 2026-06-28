@@ -16,6 +16,7 @@ struct life247App: App {
             RootRouterView() // Points to unified root router handling the splash sequence
                 .environmentObject(authContext)
                 .environmentObject(BackgroundTrackingEngine.shared)
+                .environmentObject(CircleSyncService.shared)
         }
     }
 }
