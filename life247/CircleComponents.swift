@@ -102,7 +102,7 @@ struct CircleMemberRow: View {
         return member.isCharging
     }
 
-    private var speedKMH: Int { Int(max(0, member.currentSpeed * 3.6)) }
+    private var speedText: String { UnitFormatter.speedString(metersPerSecond: member.currentSpeed) }
 
     var body: some View {
         HStack(spacing: 14) {
@@ -169,7 +169,7 @@ struct CircleMemberRow: View {
         } else {
             switch member.activity {
             case .driving:
-                badge(text: "Driving \(speedKMH) km/h", systemImage: "car.fill", color: .blue)
+                badge(text: "Driving \(speedText)", systemImage: "car.fill", color: .blue)
             case .walking:
                 badge(text: "Walking", systemImage: "figure.walk", color: .teal)
             case .stationary:
