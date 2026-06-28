@@ -46,7 +46,7 @@ struct MainApplicationTelemetryWorkspace: View {
                 ZStack(alignment: .top) {
                     Map(position: $viewportCamera) {
                         ForEach(getMapPins()) { pin in
-                            Annotation(pin.name, coordinate: pin.coordinate) {
+                            Annotation("", coordinate: pin.coordinate) {
                                 MemberMapMarker(
                                     pin: pin,
                                     showBatteryBadge: authContext.currentUserProfile != nil
@@ -56,12 +56,11 @@ struct MainApplicationTelemetryWorkspace: View {
                         }
                         
                         ForEach(dynamicGeofenceZones) { place in
-                            Annotation(place.name, coordinate: place.coordinate) {
+                            Annotation("", coordinate: place.coordinate) {
                                 PlaceMapMarker(place: place)
                             }
                         }
                     }
-                    .annotationTitles(.hidden)
                     .ignoresSafeArea(edges: .all)
                     
                     // Top Bar Floating Map Controls Layer
