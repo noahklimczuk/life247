@@ -47,77 +47,17 @@ struct MainApplicationTelemetryWorkspace: View {
                     Map(position: $viewportCamera) {
                         ForEach(getMapPins()) { pin in
                             Annotation(pin.name, coordinate: pin.coordinate) {
-                                VStack(spacing: 2) {
-                                    if pin.isCurrentUser {
-                                        // Find My-style blue location dot: soft accuracy
-                                        // halo, white ring, solid blue core.
-                                        ZStack(alignment: .bottomTrailing) {
-                                            ZStack {
-                                                Circle()
-                                                    .fill(Color.blue.opacity(0.18))
-                                                    .frame(width: 58, height: 58)
-                                                Circle()
-                                                    .fill(Color.white)
-                                                    .frame(width: 28, height: 28)
-                                                    .shadow(color: .black.opacity(0.25), radius: 3, x: 0, y: 1)
-                                                Circle()
-                                                    .fill(Color.blue)
-                                                    .frame(width: 22, height: 22)
-                                            }
-                                            .frame(width: 58, height: 58)
-
-                                            if authContext.currentUserProfile != nil {
-                                                ZStack {
-                                                    Circle().fill(Color.black.opacity(0.8)).frame(width: 18, height: 18)
-                                                    Text("🔋")
-                                                        .font(.system(size: 10))
-                                                }
-                                                .offset(x: 2, y: 2)
-                                            }
-                                        }
-                                    } else {
-                                        MemberAvatar(name: pin.name, isCharging: pin.isCharging, size: 46)
-                                            .shadow(color: .black.opacity(0.2), radius: 3, x: 0, y: 1)
-                                    }
-                                    
-                                    Text(pin.name)
-                                        .font(.caption2)
-                                        .bold()
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(Capsule().fill(Color(.systemBackground)).shadow(radius: 1))
-                                }
-                                .onTapGesture {
-                                    withAnimation(.easeInOut(duration: 0.4)) {
-                                        viewportCamera = .region(MKCoordinateRegion(
-                                            center: pin.coordinate,
-                                            span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
-                                        ))
-                                    }
-                                    contextualSheetPresented = false
-                                    if pin.isCurrentUser {
-                                        showUserDetailSheet = true
-                                    } else if let member = circleSync.members.first(where: { $0.id == pin.id }) {
-                                        selectedRemoteMember = member
-                                    }
-                                }
+                                MemberMapMarker(
+                                    pin: pin,
+                                    showBatteryBadge: authContext.currentUserProfile != nil
+                                )
+                                .onTapGesture { focusOnPin(pin) }
                             }
                         }
                         
                         ForEach(dynamicGeofenceZones) { place in
                             Annotation(place.name, coordinate: place.coordinate) {
-                                VStack(spacing: 2) {
-                                    ZStack {
-                                        Circle().fill(Color.purple.opacity(0.2)).frame(width: 38, height: 38)
-                                        Circle().fill(Color.white).frame(width: 30, height: 30).shadow(radius: 2)
-                                        Text(place.emojiIcon.isEmpty ? "📍" : place.emojiIcon).font(.system(size: 18))
-                                    }
-                                    Text(place.name.prefix(12) + (place.name.count > 12 ? "..." : ""))
-                                        .font(.system(size: 10, weight: .semibold))
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(RoundedRectangle(cornerRadius: 6).fill(Color(.systemBackground)).shadow(radius: 1))
-                                }
+                                PlaceMapMarker(place: place)
                             }
                         }
                     }
@@ -325,5 +265,85 @@ struct MainApplicationTelemetryWorkspace: View {
         }
 
         return pins
+    }
+
+    private func focusOnPin(_ pin: LocalMapMarkerIdentifier) {
+        withAnimation(.easeInOut(duration: 0.4)) {
+            viewportCamera = .region(MKCoordinateRegion(
+                center: pin.coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+            ))
+        }
+        contextualSheetPresented = false
+        if pin.isCurrentUser {
+            showUserDetailSheet = true
+        } else if let member = circleSync.members.first(where: { $0.id == pin.id }) {
+            selectedRemoteMember = member
+        }
+    }
+}
+
+// MARK: - Map markers
+
+private struct MemberMapMarker: View {
+    let pin: LocalMapMarkerIdentifier
+    let showBatteryBadge: Bool
+
+    var body: some View {
+        VStack(spacing: 2) {
+            if pin.isCurrentUser {
+                currentUserDot
+            } else {
+                MemberAvatar(name: pin.name, isCharging: pin.isCharging, size: 46)
+                    .shadow(color: .black.opacity(0.2), radius: 3, x: 0, y: 1)
+            }
+
+            Text(pin.name)
+                .font(.caption2)
+                .bold()
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Capsule().fill(Color(.systemBackground)).shadow(radius: 1))
+        }
+    }
+
+    // Find My-style blue location dot: soft accuracy halo, white ring, solid core.
+    private var currentUserDot: some View {
+        ZStack(alignment: .bottomTrailing) {
+            ZStack {
+                Circle().fill(Color.blue.opacity(0.18)).frame(width: 58, height: 58)
+                Circle().fill(Color.white).frame(width: 28, height: 28)
+                    .shadow(color: .black.opacity(0.25), radius: 3, x: 0, y: 1)
+                Circle().fill(Color.blue).frame(width: 22, height: 22)
+            }
+            .frame(width: 58, height: 58)
+
+            if showBatteryBadge {
+                ZStack {
+                    Circle().fill(Color.black.opacity(0.8)).frame(width: 18, height: 18)
+                    Text("🔋").font(.system(size: 10))
+                }
+                .offset(x: 2, y: 2)
+            }
+        }
+    }
+}
+
+private struct PlaceMapMarker: View {
+    let place: GeofenceZone
+
+    var body: some View {
+        VStack(spacing: 2) {
+            ZStack {
+                Circle().fill(Color.purple.opacity(0.2)).frame(width: 38, height: 38)
+                Circle().fill(Color.white).frame(width: 30, height: 30).shadow(radius: 2)
+                Text(place.emojiIcon.isEmpty ? "📍" : place.emojiIcon).font(.system(size: 18))
+            }
+            Text(place.name.prefix(12) + (place.name.count > 12 ? "..." : ""))
+                .font(.system(size: 10, weight: .semibold))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(RoundedRectangle(cornerRadius: 6).fill(Color(.systemBackground)).shadow(radius: 1))
+        }
     }
 }
