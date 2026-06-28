@@ -89,6 +89,7 @@ final class CircleSyncService: ObservableObject {
     // MARK: - Publish
 
     private func publishSelf() {
+        guard UserDefaults.standard.bool(forKey: AppSettingsKeys.shareLocation) else { return }
         guard let base = databaseURL,
               let username = currentUsername,
               let coordinate = BackgroundTrackingEngine.shared.liveLocation,

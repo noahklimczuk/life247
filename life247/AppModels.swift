@@ -36,11 +36,11 @@ struct UserState: Identifiable, Codable {
 
 struct GeofenceZone: Identifiable, Codable {
     let id: UUID
-    let name: String
+    var name: String
     let latitude: Double
     let longitude: Double
-    let radius: Double
-    let emojiIcon: String
+    var radius: Double
+    var emojiIcon: String
 
     var coordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)

@@ -17,11 +17,10 @@ struct TelemetryDashboardDrawer: View {
     @State private var activeTabPaneIndex = 0
     @StateObject private var appleLookupService = AppleAddressLookupService()
     @State private var postalSearchFieldText = ""
-    
-    @State private var chosenEmoji = "📍"
-    private let emojiChoices = ["🏠", "🏢", "🏫", "🛒", "📍", "🌳", "Gym", "☕️"]
 
     @State private var selectedMember: UserState?
+    @State private var pendingPlace: PendingPlace?
+    @State private var editingZone: GeofenceZone?
 
     /// All circle members to display, ensuring the current operator always
     /// appears even before their first position reaches the shared database.
@@ -86,102 +85,24 @@ struct TelemetryDashboardDrawer: View {
                     OperatorDetailView(profile: member, isCurrentUser: isMe)
                 }
                 
-                // TAB 1: PLACES ADDRESS DISCOVERY CONTROLS VIEW
-                VStack(spacing: 12) {
-                    HStack {
-                        Image(systemName: "magnifyingglass").foregroundColor(.secondary)
-                        TextField("Lookup Address", text: $postalSearchFieldText)
-                            .autocapitalization(.none)
-                            .disableAutocorrection(true)
-                            .onChange(of: postalSearchFieldText) {
-                                if appleLookupService.isProgrammaticUpdate {
-                                    appleLookupService.isProgrammaticUpdate = false
-                                    return
-                                }
-                                if postalSearchFieldText.count > 2 {
-                                    appleLookupService.executeRemoteSearchCall(text: postalSearchFieldText)
-                                }
-                            }
+                // TAB 1: PLACES — SEARCH, SAVE (WITH NAME), EDIT
+                placesPane
+                    .tag(1)
+                    .sheet(item: $pendingPlace) { pending in
+                        PlaceEditorView(
+                            mode: .add(coordinate: pending.coordinate, suggestedName: pending.suggestedName),
+                            onSave: addPlace
+                        )
+                        .presentationDetents([.medium, .large])
                     }
-                    .padding()
-                    .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemBackground)))
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
-                    
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Assign Place Icon Marker Emoji:")
-                            .font(.caption)
-                            .bold()
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal, 18)
-                        
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 12) {
-                                ForEach(emojiChoices, id: \.self) { symbol in
-                                    Text(symbol)
-                                        .font(.title2)
-                                        .padding(8)
-                                        .background(Circle().fill(chosenEmoji == symbol ? Color.purple.opacity(0.2) : Color.clear))
-                                        .overlay(Circle().stroke(chosenEmoji == symbol ? Color.purple : Color.clear, lineWidth: 2))
-                                        .onTapGesture { chosenEmoji = symbol }
-                                }
-                            }
-                            .padding(.horizontal, 18)
-                        }
+                    .sheet(item: $editingZone) { zone in
+                        PlaceEditorView(
+                            mode: .edit(zone: zone),
+                            onSave: applyPlaceEdit,
+                            onDelete: deletePlace
+                        )
+                        .presentationDetents([.medium, .large])
                     }
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Saved Places (\(registeredZones.count))")
-                            .font(.subheadline)
-                            .bold()
-                            .foregroundColor(.secondary)
-
-                        if registeredZones.isEmpty {
-                            Text("No places monitored currently.")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .padding(.vertical, 8)
-                        } else {
-                            ForEach(registeredZones) { zone in
-                                HStack {
-                                    Text(zone.emojiIcon).font(.title3)
-                                    Text(zone.name).font(.callout).lineLimit(1)
-                                    Spacer()
-                                    Button(action: {
-                                        trackingEngine.clearGeofenceZone(id: zone.id)
-                                        registeredZones.removeAll(where: { $0.id == zone.id })
-                                    }) {
-                                        Image(systemName: "trash").foregroundColor(.red)
-                                    }
-                                }
-                                .padding(.vertical, 4)
-                            }
-                        }
-                    }
-                    .padding()
-                    .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
-                    .padding(.horizontal, 16)
-
-                    if appleLookupService.networkOperationActive {
-                        ProgressView().tint(.purple).padding()
-                    }
-                    
-                    List(appleLookupService.lookupResults, id: \.self) { match in
-                        Button(action: { commitTargetGeofenceZone(from: match) }) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(match.title)
-                                    .font(.subheadline)
-                                    .bold()
-                                    .foregroundColor(.primary)
-                                Text(match.subtitle)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                    }
-                    .listStyle(.plain)
-                }
-                .tag(1)
                 
                 // TAB 2: ROUTES HISTORY LIST LAYER
                 ScrollView {
@@ -221,32 +142,157 @@ struct TelemetryDashboardDrawer: View {
         .background(Color(.systemBackground))
     }
     
-    private func commitTargetGeofenceZone(from selection: MKLocalSearchCompletion) {
-        appleLookupService.isProgrammaticUpdate = true
-        self.postalSearchFieldText = selection.title
-        
-        let searchRequest = MKLocalSearch.Request(completion: selection)
-        let search = MKLocalSearch(request: searchRequest)
-        
-        search.start { response, error in
-            guard let coords = response?.mapItems.first?.location.coordinate else { return }
-            
-            DispatchQueue.main.async {
-                let generatedZone = GeofenceZone(
-                    id: UUID(),
-                    name: selection.title,
-                    latitude: coords.latitude,
-                    longitude: coords.longitude,
-                    radius: 150.0,
-                    emojiIcon: self.chosenEmoji
-                )
-                self.registeredZones.append(generatedZone)
-                self.trackingEngine.registerGeofenceHardwareBoundary(for: generatedZone)
-                self.postalSearchFieldText = ""
-                self.appleLookupService.lookupResults = []
-                withAnimation { self.activeTabPaneIndex = 0 }
+    // MARK: - Places pane
+
+    private var placesPane: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Image(systemName: "magnifyingglass").foregroundColor(.secondary)
+                TextField("Search an address to add a place", text: $postalSearchFieldText)
+                    .autocapitalization(.none)
+                    .disableAutocorrection(true)
+                    .onChange(of: postalSearchFieldText) {
+                        if appleLookupService.isProgrammaticUpdate {
+                            appleLookupService.isProgrammaticUpdate = false
+                            return
+                        }
+                        if postalSearchFieldText.count > 2 {
+                            appleLookupService.executeRemoteSearchCall(text: postalSearchFieldText)
+                        }
+                    }
+                if !postalSearchFieldText.isEmpty {
+                    Button {
+                        postalSearchFieldText = ""
+                        appleLookupService.lookupResults = []
+                    } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
+                    }
+                }
+            }
+            .padding()
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemBackground)))
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+
+            if !appleLookupService.lookupResults.isEmpty {
+                List(appleLookupService.lookupResults, id: \.self) { match in
+                    Button(action: { beginAddingPlace(from: match) }) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "mappin.and.ellipse").foregroundColor(.purple)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(match.title).font(.subheadline).bold().foregroundColor(.primary)
+                                Text(match.subtitle).font(.caption).foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+                .listStyle(.plain)
+            } else {
+                savedPlacesList
+            }
+
+            if appleLookupService.networkOperationActive {
+                ProgressView().tint(.purple).padding(.bottom, 8)
             }
         }
+    }
+
+    private var savedPlacesList: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Saved Places")
+                        .font(.title3).bold()
+                    Spacer()
+                    Text("\(registeredZones.count)")
+                        .font(.subheadline).bold()
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 8).padding(.vertical, 2)
+                        .background(Capsule().fill(Color(.tertiarySystemFill)))
+                }
+                .padding(.horizontal, 2)
+
+                if registeredZones.isEmpty {
+                    VStack(spacing: 6) {
+                        Image(systemName: "mappin.slash")
+                            .font(.title)
+                            .foregroundColor(.secondary)
+                        Text("No places yet")
+                            .font(.subheadline).bold()
+                        Text("Search an address above to save a place like Home or Work.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 40)
+                } else {
+                    ForEach(registeredZones) { zone in
+                        Button(action: { editingZone = zone }) {
+                            placeRow(zone)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .padding(16)
+        }
+    }
+
+    private func placeRow(_ zone: GeofenceZone) -> some View {
+        HStack(spacing: 14) {
+            Text(zone.emojiIcon.isEmpty ? "📍" : zone.emojiIcon)
+                .font(.title2)
+                .frame(width: 46, height: 46)
+                .background(Circle().fill(Color.purple.opacity(0.15)))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(zone.name).font(.headline).lineLimit(1)
+                Text("\(Int(zone.radius)) m radius")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption.bold())
+                .foregroundColor(.secondary.opacity(0.5))
+        }
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 18).fill(Color(.secondarySystemBackground)))
+    }
+
+    // MARK: - Place actions
+
+    private func beginAddingPlace(from selection: MKLocalSearchCompletion) {
+        appleLookupService.isProgrammaticUpdate = true
+        postalSearchFieldText = selection.title
+
+        let searchRequest = MKLocalSearch.Request(completion: selection)
+        MKLocalSearch(request: searchRequest).start { response, _ in
+            guard let coords = response?.mapItems.first?.location.coordinate else { return }
+            DispatchQueue.main.async {
+                self.postalSearchFieldText = ""
+                self.appleLookupService.lookupResults = []
+                self.pendingPlace = PendingPlace(coordinate: coords, suggestedName: selection.title)
+            }
+        }
+    }
+
+    private func addPlace(_ zone: GeofenceZone) {
+        registeredZones.append(zone)
+        trackingEngine.registerGeofenceHardwareBoundary(for: zone)
+    }
+
+    private func applyPlaceEdit(_ zone: GeofenceZone) {
+        if let index = registeredZones.firstIndex(where: { $0.id == zone.id }) {
+            registeredZones[index] = zone
+        }
+        trackingEngine.updateGeofenceZone(zone)
+    }
+
+    private func deletePlace(_ zone: GeofenceZone) {
+        trackingEngine.clearGeofenceZone(id: zone.id)
+        registeredZones.removeAll(where: { $0.id == zone.id })
     }
 }
 

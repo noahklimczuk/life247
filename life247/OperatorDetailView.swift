@@ -81,7 +81,7 @@ struct OperatorDetailView: View {
         var parts: [String] = []
         parts.append("\(profile.batteryPercentage)%\(profile.isCharging ? " ⚡️" : "")")
         if profile.activity == .driving {
-            parts.append("Driving \(Int(max(0, profile.currentSpeed * 3.6))) km/h")
+            parts.append("Driving \(UnitFormatter.speedString(metersPerSecond: profile.currentSpeed))")
         } else {
             parts.append(profile.activity.rawValue)
         }

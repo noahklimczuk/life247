@@ -141,6 +141,32 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
         }
     }
     
+    /// Applies an edited place: updates name/emoji/radius and re-arms monitoring
+    /// when the radius changes so the region matches the new value.
+    func updateGeofenceZone(_ zone: GeofenceZone) {
+        DispatchQueue.main.async {
+            guard let index = self.activeGeofences.firstIndex(where: { $0.id == zone.id }) else { return }
+            let radiusChanged = self.activeGeofences[index].radius != zone.radius
+            self.activeGeofences[index] = zone
+
+            if radiusChanged {
+                if let region = self.locationManager.monitoredRegions.first(where: { $0.identifier == zone.id.uuidString }) {
+                    self.locationManager.stopMonitoring(for: region)
+                }
+                let region = CLCircularRegion(center: zone.coordinate, radius: zone.radius, identifier: zone.id.uuidString)
+                region.notifyOnEntry = true
+                region.notifyOnExit = true
+                self.locationManager.startMonitoring(for: region)
+            }
+            self.persistGeofences()
+        }
+    }
+
+    /// Reflects the user's accuracy preference onto the location manager.
+    func applyAccuracyPreference(highAccuracy: Bool) {
+        locationManager.desiredAccuracy = highAccuracy ? kCLLocationAccuracyBestForNavigation : kCLLocationAccuracyHundredMeters
+    }
+
     func clearGeofenceZone(id: UUID) {
         DispatchQueue.main.async {
             self.activeGeofences.removeAll(where: { $0.id == id })

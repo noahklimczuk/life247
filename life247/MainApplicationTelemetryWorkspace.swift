@@ -30,12 +30,9 @@ struct MainApplicationTelemetryWorkspace: View {
     @State private var showHamburgerMenu = false
     @State private var showUserDetailSheet = false
     @State private var selectedRemoteMember: UserState?
-    
-    // Local state toggles to drive your telemetry settings options
-    @State private var highAccuracyTracking = true
-    @State private var geofenceNotifications = true
-    @State private var routeRecordingAutomation = true
-    @State private var shareLocationWithCircle = true
+
+    @AppStorage(AppSettingsKeys.mapStyle) private var mapStyleRaw = MapStyleChoice.standard.rawValue
+    @AppStorage(AppSettingsKeys.highAccuracy) private var highAccuracy = true
     
     var body: some View {
         GeometryReader { geometry in
@@ -61,6 +58,7 @@ struct MainApplicationTelemetryWorkspace: View {
                             }
                         }
                     }
+                    .mapStyle((MapStyleChoice(rawValue: mapStyleRaw) ?? .standard).style)
                     .ignoresSafeArea(edges: .all)
                     
                     // Top Bar Floating Map Controls Layer
@@ -98,104 +96,21 @@ struct MainApplicationTelemetryWorkspace: View {
                 }
                 
                 // HAMBURGER SETTINGS DRAWER OVERLAY
-                VStack(spacing: 0) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        HStack {
-                            Text("System Settings")
-                                .font(.system(size: 24, weight: .bold))
-                                .foregroundColor(.white)
-                            Spacer()
-                            Button(action: {
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                                    showHamburgerMenu = false
-                                    contextualSheetPresented = true
-                                }
-                            }) {
-                                Image(systemName: "xmark")
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundColor(.white.opacity(0.7))
-                                    .padding(8)
-                                    .background(Circle().fill(Color.white.opacity(0.15)))
-                            }
+                SettingsDrawerView(
+                    onClose: {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                            showHamburgerMenu = false
+                            contextualSheetPresented = true
                         }
-                        .padding(.top, 60)
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 20)
-                    }
-                    .background(Color(red: 0.15, green: 0.05, blue: 0.25))
-                    
-                    Form {
-                        Section("Profile & Status") {
-                            HStack(spacing: 12) {
-                                Image(systemName: "person.crop.circle.fill")
-                                    .font(.system(size: 38))
-                                    .foregroundColor(.gray)
-                                
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Operator")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    Text(authContext.currentUserProfile?.name ?? "Unknown Node")
-                                        .font(.body)
-                                        .bold()
-                                }
-                                Spacer()
-                            }
-                            .padding(.vertical, 4)
-                        }
-                        
-                        Section("Telemetry Preferences") {
-                            Toggle("High-Accuracy Tracking", isOn: $highAccuracyTracking)
-                            Toggle("Geofence Notifications", isOn: $geofenceNotifications)
-                            Toggle("Route Recording Auto", isOn: $routeRecordingAutomation)
-                            Toggle("Share Location", isOn: $shareLocationWithCircle)
-                        }
-                        .tint(.purple)
-                        
-                        Section("Hardware Status") {
-                            HStack {
-                                Text("Map Cache:")
-                                    .font(.body)
-                                Spacer()
-                                Text("Dynamic Optimization Active").foregroundColor(.secondary).font(.footnote)
-                            }
-                        }
-                        
-                        Section {
-                            Button(role: .destructive, action: {
-                                withAnimation(.easeOut(duration: 0.25)) {
-                                    showHamburgerMenu = false
-                                    authContext.performSecureLogout()
-                                }
-                            }) {
-                                HStack {
-                                    Image(systemName: "rectangle.portrait.and.arrow.forward")
-                                    Text("Sign Out Securely")
-                                }
-                                .font(.headline)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                            }
-                            .listRowBackground(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.red)
-                            )
-                        } footer: {
-                            VStack(alignment: .center, spacing: 4) {
-                                Text("Revokes access & clears session data.")
-                                    .multilineTextAlignment(.center)
-                                    .frame(maxWidth: .infinity)
-                                
-                                Text("life247 Telemetry Core API v1.2")
-                                    .font(.system(size: 10, design: .monospaced))
-                                    .foregroundColor(.secondary)
-                                    .frame(maxWidth: .infinity)
-                            }
+                    },
+                    onSignOut: {
+                        withAnimation(.easeOut(duration: 0.25)) {
+                            showHamburgerMenu = false
+                            authContext.performSecureLogout()
                         }
                     }
-                }
+                )
                 .frame(width: menuWidth)
-                .background(Color(.systemGroupedBackground))
                 .ignoresSafeArea(edges: .vertical)
                 .offset(x: showHamburgerMenu ? 0 : -menuWidth)
             }
@@ -225,6 +140,7 @@ struct MainApplicationTelemetryWorkspace: View {
                 }
             }
             .task {
+                trackingEngine.applyAccuracyPreference(highAccuracy: highAccuracy)
                 trackingEngine.restorePersistedGeofences()
                 trackingEngine.beginAmbientLocationUpdates()
                 self.dynamicGeofenceZones = trackingEngine.activeGeofences
