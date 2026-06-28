@@ -31,6 +31,10 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
     private var pathSequence: [CLLocationCoordinate2D] = []
     private var incrementalDistanceMeters: Double = 0.0
     private var driveMaxSpeed: Double = 0.0
+    private var tripStationarySince: Date?
+    private let autoTripMovingThresholdKmh = 1.5
+    private let autoTripStopStationarySeconds: TimeInterval = 120
+    private let autoTripMinDistanceMeters: Double = 60
     private var perimeterTimer: Timer?
     private var zoneArrivalTimestamp: Date?
     private let persistedGeofencesKey = "life247.savedGeofences"
@@ -121,9 +125,16 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
                 self.liveTrackingActive = true
                 self.startLocationUpdatesIfAuthorized()
             } else {
-                self.locationManager.stopUpdatingLocation()
+                // Keep the ambient location stream alive (live position + next
+                // auto-trip detection); only fully stop when nothing wants updates.
+                if !self.wantsAmbientUpdates {
+                    self.locationManager.stopUpdatingLocation()
+                }
                 self.liveTrackingActive = false
-                if let start = self.driveStartedDate, self.pathSequence.count > 1 {
+                self.tripStationarySince = nil
+                if let start = self.driveStartedDate,
+                   self.pathSequence.count > 1,
+                   self.incrementalDistanceMeters >= self.autoTripMinDistanceMeters {
                     let drive = HistoricalRouteDrive(startTime: start, endTime: Date(), totalDistanceMeters: self.incrementalDistanceMeters, maxSpeedMetersPerSecond: self.driveMaxSpeed, breadcrumbs: self.pathSequence)
                     self.recordedDrivesHistory.insert(drive, at: 0)
                 }
@@ -207,16 +218,43 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last else { return }
         DispatchQueue.main.async {
+            let speed = max(0, location.speed)
             self.liveLocation = location.coordinate
-            self.liveSpeed = max(0, location.speed)
+            self.liveSpeed = speed
             if self.liveTrackingActive {
-                self.driveMaxSpeed = max(self.driveMaxSpeed, max(0, location.speed))
+                self.driveMaxSpeed = max(self.driveMaxSpeed, speed)
                 if let lastNode = self.pathSequence.last {
                     let delta = location.distance(from: CLLocation(latitude: lastNode.latitude, longitude: lastNode.longitude))
                     self.incrementalDistanceMeters += delta
                 }
                 self.pathSequence.append(location.coordinate)
             }
+            self.evaluateAutomaticTripRecording(speedMetersPerSecond: speed)
+        }
+    }
+
+    /// Starts a trip when the operator begins moving (walking or driving) and ends
+    /// it after a sustained stationary period, so both walks and drives are logged
+    /// automatically. Gated on the "Auto Trip Recording" preference.
+    private func evaluateAutomaticTripRecording(speedMetersPerSecond speed: Double) {
+        guard UserDefaults.standard.bool(forKey: AppSettingsKeys.autoRouteRecording) else { return }
+        let kmh = speed * 3.6
+
+        if !liveTrackingActive {
+            if kmh >= autoTripMovingThresholdKmh {
+                synchronizeTrackingState(isActive: true)
+            }
+            return
+        }
+
+        if kmh >= autoTripMovingThresholdKmh {
+            tripStationarySince = nil
+        } else if let since = tripStationarySince {
+            if Date().timeIntervalSince(since) >= autoTripStopStationarySeconds {
+                synchronizeTrackingState(isActive: false)
+            }
+        } else {
+            tripStationarySince = Date()
         }
     }
     
@@ -231,7 +269,6 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
         if let uuid = UUID(uuidString: region.identifier), let zone = activeGeofences.first(where: { $0.id == uuid }) {
             dispatchLocalNotification(title: "Left region boundary", message: "Departed your place: \(zone.name)")
             teardownZoneMetrologyTracking()
-            synchronizeTrackingState(isActive: true)
         }
     }
     

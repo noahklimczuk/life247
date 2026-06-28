@@ -73,6 +73,18 @@ struct HistoricalRouteDrive: Identifiable, Codable {
     /// Trip duration in seconds.
     var duration: TimeInterval { max(0, endTime.timeIntervalSince(startTime)) }
 
+    /// Average speed across the whole trip (meters/second).
+    var averageSpeedMetersPerSecond: Double {
+        duration > 0 ? totalDistanceMeters / duration : 0
+    }
+
+    /// Whether the trip reads as a drive vs a walk, inferred from its pace.
+    /// Average pace over ~10 km/h is treated as driving.
+    var isDriving: Bool { averageSpeedMetersPerSecond * 3.6 > 10 }
+
+    var modeLabel: String { isDriving ? "Drive" : "Walk" }
+    var modeSymbol: String { isDriving ? "car.fill" : "figure.walk" }
+
     enum CodingKeys: String, CodingKey {
         case id
         case startTime
