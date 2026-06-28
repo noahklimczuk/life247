@@ -8,5 +8,7 @@
 		<string>remote-notification</string>
 		<string>fetch</string>
 	</array>
+	<key>FirebaseDatabaseURL</key>
+	<string></string>
 </dict>
 </plist>

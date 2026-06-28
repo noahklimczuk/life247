@@ -12,6 +12,9 @@ import CoreLocation
 /// map's current-user marker.
 struct OperatorDetailView: View {
     let profile: UserState
+    /// When true, the operator is the signed-in user on this device and we use
+    /// the live local GPS fix; otherwise we show the member's shared position.
+    var isCurrentUser: Bool = true
 
     @EnvironmentObject var trackingEngine: BackgroundTrackingEngine
     @Environment(\.dismiss) private var dismiss
@@ -20,10 +23,13 @@ struct OperatorDetailView: View {
 
     private let ticker = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
-    /// The operator's current position, preferring the live GPS fix and falling
-    /// back to the coordinates captured on the profile.
+    /// The operator's current position: the live GPS fix for this device's user,
+    /// or the position shared by the member through the circle database.
     private var currentCoordinate: CLLocationCoordinate2D {
-        trackingEngine.liveLocation ?? profile.coordinate
+        if isCurrentUser {
+            return trackingEngine.liveLocation ?? profile.coordinate
+        }
+        return profile.coordinate
     }
 
     var body: some View {
@@ -65,8 +71,12 @@ struct OperatorDetailView: View {
         }
         .onReceive(ticker) { now = $0 }
         .onAppear(perform: resolveAddress)
-        .onChange(of: trackingEngine.liveLocation?.latitude) { _, _ in resolveAddress() }
-        .onChange(of: trackingEngine.liveLocation?.longitude) { _, _ in resolveAddress() }
+        .onChange(of: trackingEngine.liveLocation?.latitude) { _, _ in
+            if isCurrentUser { resolveAddress() }
+        }
+        .onChange(of: trackingEngine.liveLocation?.longitude) { _, _ in
+            if isCurrentUser { resolveAddress() }
+        }
     }
 
     /// Human-readable elapsed time since the operator arrived at the location.

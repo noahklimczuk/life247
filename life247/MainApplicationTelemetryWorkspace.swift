@@ -19,6 +19,7 @@ struct LocalMapMarkerIdentifier: Identifiable {
 struct MainApplicationTelemetryWorkspace: View {
     @EnvironmentObject var authContext: SessionAuthContext
     @EnvironmentObject var trackingEngine: BackgroundTrackingEngine
+    @EnvironmentObject var circleSync: CircleSyncService
     
     @State private var viewportCamera: MapCameraPosition = .userLocation(fallback: .automatic)
     @State private var contextualSheetPresented = true
@@ -27,6 +28,7 @@ struct MainApplicationTelemetryWorkspace: View {
     // Controls the visible open state of the side drawer panel
     @State private var showHamburgerMenu = false
     @State private var showUserDetailSheet = false
+    @State private var selectedRemoteMember: UserState?
     
     // Local state toggles to drive your telemetry settings options
     @State private var highAccuracyTracking = true
@@ -93,9 +95,11 @@ struct MainApplicationTelemetryWorkspace: View {
                                         .background(Capsule().fill(Color(.systemBackground)).shadow(radius: 1))
                                 }
                                 .onTapGesture {
+                                    contextualSheetPresented = false
                                     if pin.isCurrentUser {
-                                        contextualSheetPresented = false
                                         showUserDetailSheet = true
+                                    } else if let member = circleSync.members.first(where: { $0.id == pin.id }) {
+                                        selectedRemoteMember = member
                                     }
                                 }
                             }
@@ -265,10 +269,13 @@ struct MainApplicationTelemetryWorkspace: View {
             }
             .sheet(isPresented: $showUserDetailSheet, onDismiss: { contextualSheetPresented = true }) {
                 if let profile = authContext.currentUserProfile {
-                    OperatorDetailView(profile: profile)
+                    OperatorDetailView(profile: profile, isCurrentUser: true)
                 } else {
                     Text("No operator data available")
                 }
+            }
+            .sheet(item: $selectedRemoteMember, onDismiss: { contextualSheetPresented = true }) { member in
+                OperatorDetailView(profile: member, isCurrentUser: false)
             }
             // FIXED: Uses standard array count tracking expression which resolves the Hashable non-conformance compiler failure
             .onChange(of: dynamicGeofenceZones.count) { oldCount, newCount in
@@ -287,20 +294,35 @@ struct MainApplicationTelemetryWorkspace: View {
     }
     
     private func getMapPins() -> [LocalMapMarkerIdentifier] {
-        guard let profile = authContext.currentUserProfile else { return [] }
-        
-        let dynamicCoordinate = trackingEngine.liveLocation ?? CLLocationCoordinate2D(
-            latitude: profile.latitude,
-            longitude: profile.longitude
-        )
-        
-        return [
-            LocalMapMarkerIdentifier(
-                id: profile.id,
-                name: profile.name,
-                coordinate: dynamicCoordinate,
-                isCurrentUser: true
+        var pins: [LocalMapMarkerIdentifier] = []
+        let myUsername = circleSync.currentUsername
+
+        // Current operator rendered from this device's live GPS fix.
+        if let profile = authContext.currentUserProfile {
+            let dynamicCoordinate = trackingEngine.liveLocation ?? profile.coordinate
+            pins.append(
+                LocalMapMarkerIdentifier(
+                    id: profile.id,
+                    name: profile.name,
+                    coordinate: dynamicCoordinate,
+                    isCurrentUser: true
+                )
             )
-        ]
+        }
+
+        // Every other circle member sourced live from the shared database.
+        for member in circleSync.members {
+            if let myUsername, member.name.lowercased() == myUsername { continue }
+            pins.append(
+                LocalMapMarkerIdentifier(
+                    id: member.id,
+                    name: member.name,
+                    coordinate: member.coordinate,
+                    isCurrentUser: false
+                )
+            )
+        }
+
+        return pins
     }
 }
