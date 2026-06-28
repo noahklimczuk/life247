@@ -26,7 +26,16 @@ final class CircleSyncService: ObservableObject {
     private(set) var currentUsername: String?
 
     private let circleID = "main"
-    private let session = URLSession(configuration: .default)
+
+    /// No caching: a live roster must never be served a stale cached response,
+    /// so each poll hits the database directly.
+    private let session: URLSession = {
+        let config = URLSessionConfiguration.ephemeral
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        config.urlCache = nil
+        return URLSession(configuration: config)
+    }()
+
     private let publishInterval: TimeInterval = 5.0
     private let pollInterval: TimeInterval = 5.0
 
@@ -85,14 +94,16 @@ final class CircleSyncService: ObservableObject {
               let coordinate = BackgroundTrackingEngine.shared.liveLocation,
               let url = URL(string: "\(base)/circles/\(circleID)/members/\(username).json") else { return }
 
+        let speed = max(0, BackgroundTrackingEngine.shared.liveSpeed)
+
         let payload: [String: Any] = [
             "id": memberID,
             "name": memberName,
             "latitude": coordinate.latitude,
             "longitude": coordinate.longitude,
             "batteryPercentage": BackgroundTrackingEngine.batteryPercentage(from: UIDevice.current.batteryLevel),
-            "currentSpeed": 0.0,
-            "activity": TrackedUserActivity.stationary.rawValue,
+            "currentSpeed": speed,
+            "activity": Self.activity(forSpeedMetersPerSecond: speed).rawValue,
             "updatedAt": Date().timeIntervalSince1970
         ]
 
@@ -116,20 +127,29 @@ final class CircleSyncService: ObservableObject {
                   let data,
                   !data.isEmpty,
                   let object = try? JSONSerialization.jsonObject(with: data),
-                  let roster = object as? [String: [String: Any]] else { return }
+                  let roster = object as? [String: Any] else { return }
 
-            let parsed = roster.values.compactMap { Self.decodeMember($0) }
+            let parsed = roster.values.compactMap { ($0 as? [String: Any]).flatMap(Self.decodeMember) }
             DispatchQueue.main.async {
                 self.members = parsed.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
             }
         }.resume()
     }
 
+    /// Maps a raw speed (m/s) to a coarse activity classification.
+    private static func activity(forSpeedMetersPerSecond speed: Double) -> TrackedUserActivity {
+        let kmh = speed * 3.6
+        if kmh > 12 { return .driving }
+        if kmh > 1.5 { return .walking }
+        return .stationary
+    }
+
     private static func decodeMember(_ dict: [String: Any]) -> UserState? {
         guard let id = dict["id"] as? String,
               let name = dict["name"] as? String,
               let latitude = (dict["latitude"] as? NSNumber)?.doubleValue,
-              let longitude = (dict["longitude"] as? NSNumber)?.doubleValue else { return nil }
+              let longitude = (dict["longitude"] as? NSNumber)?.doubleValue,
+              CLLocationCoordinate2DIsValid(CLLocationCoordinate2D(latitude: latitude, longitude: longitude)) else { return nil }
 
         let battery = (dict["batteryPercentage"] as? NSNumber)?.intValue ?? 100
         let speed = (dict["currentSpeed"] as? NSNumber)?.doubleValue ?? 0.0
