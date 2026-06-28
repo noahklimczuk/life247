@@ -30,6 +30,7 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
     private var driveStartedDate: Date?
     private var pathSequence: [CLLocationCoordinate2D] = []
     private var incrementalDistanceMeters: Double = 0.0
+    private var driveMaxSpeed: Double = 0.0
     private var perimeterTimer: Timer?
     private var zoneArrivalTimestamp: Date?
     private let persistedGeofencesKey = "life247.savedGeofences"
@@ -116,13 +117,14 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
                 self.driveStartedDate = Date()
                 self.pathSequence = []
                 self.incrementalDistanceMeters = 0.0
+                self.driveMaxSpeed = 0.0
                 self.liveTrackingActive = true
                 self.startLocationUpdatesIfAuthorized()
             } else {
                 self.locationManager.stopUpdatingLocation()
                 self.liveTrackingActive = false
                 if let start = self.driveStartedDate, self.pathSequence.count > 1 {
-                    let drive = HistoricalRouteDrive(startTime: start, endTime: Date(), totalDistanceMeters: self.incrementalDistanceMeters, breadcrumbs: self.pathSequence)
+                    let drive = HistoricalRouteDrive(startTime: start, endTime: Date(), totalDistanceMeters: self.incrementalDistanceMeters, maxSpeedMetersPerSecond: self.driveMaxSpeed, breadcrumbs: self.pathSequence)
                     self.recordedDrivesHistory.insert(drive, at: 0)
                 }
                 self.driveStartedDate = nil
@@ -208,6 +210,7 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
             self.liveLocation = location.coordinate
             self.liveSpeed = max(0, location.speed)
             if self.liveTrackingActive {
+                self.driveMaxSpeed = max(self.driveMaxSpeed, max(0, location.speed))
                 if let lastNode = self.pathSequence.last {
                     let delta = location.distance(from: CLLocation(latitude: lastNode.latitude, longitude: lastNode.longitude))
                     self.incrementalDistanceMeters += delta

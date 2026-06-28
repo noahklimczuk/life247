@@ -13,6 +13,7 @@ enum AppSettingsKeys {
     static let highAccuracy = "life247.highAccuracy"
     static let placeAlerts = "life247.placeAlerts"
     static let lowBatteryAlerts = "life247.lowBatteryAlerts"
+    static let chatAlerts = "life247.chatAlerts"
     static let autoRouteRecording = "life247.autoRouteRecording"
     static let useMiles = "life247.useMiles"
     static let mapStyle = "life247.mapStyle"
@@ -26,6 +27,7 @@ extension UserDefaults {
             AppSettingsKeys.highAccuracy: true,
             AppSettingsKeys.placeAlerts: true,
             AppSettingsKeys.lowBatteryAlerts: true,
+            AppSettingsKeys.chatAlerts: true,
             AppSettingsKeys.autoRouteRecording: true,
             AppSettingsKeys.useMiles: false,
             AppSettingsKeys.mapStyle: MapStyleChoice.standard.rawValue
@@ -76,5 +78,25 @@ enum UnitFormatter {
             return "\(Int(speed * 2.23694)) mph"
         }
         return "\(Int(speed * 3.6)) km/h"
+    }
+
+    /// Formats a distance (meters) using the active unit preference.
+    static func distanceString(meters: Double) -> String {
+        let value = max(0, meters)
+        if useMiles {
+            return String(format: "%.1f mi", value / 1609.34)
+        }
+        return String(format: "%.1f km", value / 1000.0)
+    }
+
+    /// Compact "1h 12m" / "12m 30s" style duration formatting.
+    static func durationString(seconds: TimeInterval) -> String {
+        let total = Int(max(0, seconds))
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        let secs = total % 60
+        if hours > 0 { return "\(hours)h \(minutes)m" }
+        if minutes > 0 { return "\(minutes)m \(secs)s" }
+        return "\(secs)s"
     }
 }
