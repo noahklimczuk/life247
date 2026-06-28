@@ -48,53 +48,26 @@ struct TelemetryDashboardDrawer: View {
             TabView(selection: $activeTabPaneIndex) {
                 // TAB 0: CIRCLES OVERVIEW PANEL
                 ScrollView {
-                    VStack(spacing: 16) {
+                    VStack(spacing: 12) {
+                        HStack {
+                            Text("People")
+                                .font(.title3).bold()
+                            Spacer()
+                            Text("\(circleRoster.count)")
+                                .font(.subheadline).bold()
+                                .foregroundColor(.secondary)
+                                .padding(.horizontal, 8).padding(.vertical, 2)
+                                .background(Capsule().fill(Color(.tertiarySystemFill)))
+                        }
+                        .padding(.horizontal, 2)
+
                         ForEach(circleRoster) { member in
                             let isMe = member.name.lowercased() == (authContext.currentUserProfile?.name.lowercased() ?? "")
-                            HStack(spacing: 16) {
-                                Circle().fill(Color.purple.opacity(0.15)).frame(width: 48, height: 48)
-                                    .overlay(Text(String(member.name.prefix(2)).uppercased()).foregroundColor(.purple).bold())
-
-                                VStack(alignment: .leading, spacing: 4) {
-                                    HStack {
-                                        Text(member.name)
-                                            .font(.headline)
-                                        if isMe {
-                                            Text("You")
-                                                .font(.caption2)
-                                                .bold()
-                                                .padding(.horizontal, 6)
-                                                .padding(.vertical, 2)
-                                                .background(Capsule().fill(Color.purple.opacity(0.15)))
-                                                .foregroundColor(.purple)
-                                        }
-                                        Spacer()
-                                        Text("🔋 \(member.batteryPercentage)%")
-                                            .font(.subheadline)
-                                            .foregroundColor(.secondary)
-                                        Image(systemName: "chevron.right")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
-
-                                    HStack {
-                                        Image(systemName: "waveform.path.ecg").foregroundColor(.green)
-                                        Text(isMe && trackingEngine.liveTrackingActive ? "Live Tracking Active" : member.activity.rawValue)
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                        Spacer()
-
-                                        let rateInKPH = Int(max(0, member.currentSpeed * 3.6))
-                                        Text("\(rateInKPH) km/h")
-                                            .font(.caption)
-                                            .bold()
-                                            .foregroundColor(.purple)
-                                    }
-                                }
-                            }
-                            .padding()
-                            .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
-                            .contentShape(Rectangle())
+                            CircleMemberRow(
+                                member: member,
+                                isCurrentUser: isMe,
+                                isTracking: trackingEngine.liveTrackingActive
+                            )
                             .onTapGesture { selectedMember = member }
                         }
 

@@ -24,6 +24,7 @@ struct UserState: Identifiable, Codable {
     var batteryPercentage: Int
     var currentSpeed: Double
     var activity: TrackedUserActivity
+    var isCharging: Bool = false
     var atLocationSince: Date = Date()
 
     var coordinate: CLLocationCoordinate2D {

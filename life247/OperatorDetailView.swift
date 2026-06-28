@@ -38,14 +38,10 @@ struct OperatorDetailView: View {
             List {
                 Section {
                     HStack(spacing: 16) {
-                        ZStack {
-                            Circle().fill(Color.blue.opacity(0.15)).frame(width: 64, height: 64)
-                            Text(String(profile.name.prefix(2)).uppercased())
-                                .font(.title2).bold().foregroundColor(.blue)
-                        }
+                        MemberAvatar(name: profile.name, isCharging: profile.isCharging, size: 64)
                         VStack(alignment: .leading, spacing: 4) {
                             Text(profile.name).font(.title3).bold()
-                            Text("🔋 \(profile.batteryPercentage)%  •  \(profile.activity.rawValue)")
+                            Text(statusLine)
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                         }
@@ -78,6 +74,18 @@ struct OperatorDetailView: View {
         .onChange(of: trackingEngine.liveLocation?.longitude) { _, _ in
             if isCurrentUser { resolveAddress() }
         }
+    }
+
+    /// Battery / charging / movement summary shown under the operator's name.
+    private var statusLine: String {
+        var parts: [String] = []
+        parts.append("\(profile.batteryPercentage)%\(profile.isCharging ? " ⚡️" : "")")
+        if profile.activity == .driving {
+            parts.append("Driving \(Int(max(0, profile.currentSpeed * 3.6))) km/h")
+        } else {
+            parts.append(profile.activity.rawValue)
+        }
+        return parts.joined(separator: "  •  ")
     }
 
     /// Human-readable elapsed time since the operator arrived at the location.
