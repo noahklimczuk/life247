@@ -122,6 +122,7 @@ struct MainApplicationTelemetryWorkspace: View {
                             }
                         }
                     }
+                    .annotationTitles(.hidden)
                     .ignoresSafeArea(edges: .all)
                     
                     // Top Bar Floating Map Controls Layer
