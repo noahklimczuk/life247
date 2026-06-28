@@ -30,6 +30,8 @@ struct MainApplicationTelemetryWorkspace: View {
     @State private var showHamburgerMenu = false
     @State private var showUserDetailSheet = false
     @State private var selectedRemoteMember: UserState?
+    @State private var showChat = false
+    @State private var showSOSConfirm = false
 
     @AppStorage(AppSettingsKeys.mapStyle) private var mapStyleRaw = MapStyleChoice.standard.rawValue
     @AppStorage(AppSettingsKeys.highAccuracy) private var highAccuracy = true
@@ -62,7 +64,7 @@ struct MainApplicationTelemetryWorkspace: View {
                     .ignoresSafeArea(edges: .all)
                     
                     // Top Bar Floating Map Controls Layer
-                    HStack {
+                    HStack(alignment: .top) {
                         Button(action: {
                             withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
                                 contextualSheetPresented = false
@@ -78,6 +80,16 @@ struct MainApplicationTelemetryWorkspace: View {
                         .padding(.leading, 16)
                         
                         Spacer()
+
+                        VStack(spacing: 12) {
+                            mapControl(icon: "location.fill", tint: .blue, action: recenterOnUser)
+                            mapControl(icon: "bubble.left.and.bubble.right.fill", tint: .purple) {
+                                contextualSheetPresented = false
+                                showChat = true
+                            }
+                            sosControl
+                        }
+                        .padding(.trailing, 16)
                     }
                     .padding(.top, 64)
                 }
@@ -131,6 +143,15 @@ struct MainApplicationTelemetryWorkspace: View {
             .sheet(item: $selectedRemoteMember, onDismiss: { contextualSheetPresented = true }) { member in
                 OperatorDetailView(profile: member, isCurrentUser: false)
             }
+            .sheet(isPresented: $showChat, onDismiss: { contextualSheetPresented = true }) {
+                ChatView(currentUserId: circleSync.currentUsername ?? "")
+            }
+            .alert("Send SOS to your circle?", isPresented: $showSOSConfirm) {
+                Button("Send SOS", role: .destructive) { circleSync.setSOS(true) }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Your circle will be alerted with your live location until you cancel.")
+            }
             // FIXED: Uses standard array count tracking expression which resolves the Hashable non-conformance compiler failure
             .onChange(of: dynamicGeofenceZones.count) { oldCount, newCount in
                 for zone in dynamicGeofenceZones {
@@ -147,7 +168,47 @@ struct MainApplicationTelemetryWorkspace: View {
             }
         }
     }
-    
+
+    // MARK: - Map controls
+
+    private func mapControl(icon: String, tint: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundColor(tint)
+                .frame(width: 44, height: 44)
+                .background(Circle().fill(Color(.systemBackground)).shadow(radius: 4))
+        }
+    }
+
+    @ViewBuilder
+    private var sosControl: some View {
+        Button {
+            if circleSync.isBroadcastingSOS {
+                circleSync.setSOS(false)
+            } else {
+                showSOSConfirm = true
+            }
+        } label: {
+            Image(systemName: circleSync.isBroadcastingSOS ? "exclamationmark.triangle.fill" : "sos.circle.fill")
+                .font(.title3)
+                .foregroundColor(.white)
+                .frame(width: 44, height: 44)
+                .background(Circle().fill(Color.red).shadow(radius: 4))
+        }
+    }
+
+    private func recenterOnUser() {
+        let target = trackingEngine.liveLocation ?? authContext.currentUserProfile?.coordinate
+        guard let target else { return }
+        withAnimation(.easeInOut(duration: 0.4)) {
+            viewportCamera = .region(MKCoordinateRegion(
+                center: target,
+                span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+            ))
+        }
+    }
+
     private func getMapPins() -> [LocalMapMarkerIdentifier] {
         var pins: [LocalMapMarkerIdentifier] = []
         let myUsername = circleSync.currentUsername

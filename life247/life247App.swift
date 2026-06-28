@@ -21,6 +21,7 @@ struct life247App: App {
                 .environmentObject(authContext)
                 .environmentObject(BackgroundTrackingEngine.shared)
                 .environmentObject(CircleSyncService.shared)
+                .environmentObject(CircleChatService.shared)
         }
     }
 }

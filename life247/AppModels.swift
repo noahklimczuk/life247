@@ -25,11 +25,24 @@ struct UserState: Identifiable, Codable {
     var currentSpeed: Double
     var activity: TrackedUserActivity
     var isCharging: Bool = false
+    var isSOS: Bool = false
     var atLocationSince: Date = Date()
 
     var coordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
     }
+}
+
+// MARK: - Chat Message
+
+struct ChatMessage: Identifiable, Codable, Equatable {
+    let id: String
+    let senderId: String
+    let senderName: String
+    let text: String
+    let timestamp: Date
+
+    var sentAt: Date { timestamp }
 }
 
 // MARK: - Geofence Zone
@@ -54,22 +67,28 @@ struct HistoricalRouteDrive: Identifiable, Codable {
     let startTime: Date
     let endTime: Date
     let totalDistanceMeters: Double
+    let maxSpeedMetersPerSecond: Double
     let breadcrumbs: [CLLocationCoordinate2D]
+
+    /// Trip duration in seconds.
+    var duration: TimeInterval { max(0, endTime.timeIntervalSince(startTime)) }
 
     enum CodingKeys: String, CodingKey {
         case id
         case startTime
         case endTime
         case totalDistanceMeters
+        case maxSpeedMetersPerSecond
         case breadcrumbsLatitudes
         case breadcrumbsLongitudes
     }
 
-    init(id: UUID = UUID(), startTime: Date, endTime: Date, totalDistanceMeters: Double, breadcrumbs: [CLLocationCoordinate2D]) {
+    init(id: UUID = UUID(), startTime: Date, endTime: Date, totalDistanceMeters: Double, maxSpeedMetersPerSecond: Double = 0, breadcrumbs: [CLLocationCoordinate2D]) {
         self.id = id
         self.startTime = startTime
         self.endTime = endTime
         self.totalDistanceMeters = totalDistanceMeters
+        self.maxSpeedMetersPerSecond = maxSpeedMetersPerSecond
         self.breadcrumbs = breadcrumbs
     }
 
@@ -79,6 +98,7 @@ struct HistoricalRouteDrive: Identifiable, Codable {
         self.startTime = try container.decode(Date.self, forKey: .startTime)
         self.endTime = try container.decode(Date.self, forKey: .endTime)
         self.totalDistanceMeters = try container.decode(Double.self, forKey: .totalDistanceMeters)
+        self.maxSpeedMetersPerSecond = try container.decodeIfPresent(Double.self, forKey: .maxSpeedMetersPerSecond) ?? 0
 
         let lats = try container.decode([Double].self, forKey: .breadcrumbsLatitudes)
         let lons = try container.decode([Double].self, forKey: .breadcrumbsLongitudes)
@@ -96,6 +116,7 @@ struct HistoricalRouteDrive: Identifiable, Codable {
         try container.encode(startTime, forKey: .startTime)
         try container.encode(endTime, forKey: .endTime)
         try container.encode(totalDistanceMeters, forKey: .totalDistanceMeters)
+        try container.encode(maxSpeedMetersPerSecond, forKey: .maxSpeedMetersPerSecond)
 
         let lats = breadcrumbs.map { $0.latitude }
         let lons = breadcrumbs.map { $0.longitude }

@@ -27,6 +27,7 @@ struct RootRouterView: View {
         .animation(.easeOut(duration: 0.3), value: splashCompleted)
         .onAppear {
             trackingEngine.initializeSystemHardwareAccess()
+            NotificationManager.shared.bootstrap()
         }
     }
 }

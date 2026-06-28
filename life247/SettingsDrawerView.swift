@@ -18,6 +18,7 @@ struct SettingsDrawerView: View {
     @AppStorage(AppSettingsKeys.highAccuracy) private var highAccuracy = true
     @AppStorage(AppSettingsKeys.placeAlerts) private var placeAlerts = true
     @AppStorage(AppSettingsKeys.lowBatteryAlerts) private var lowBatteryAlerts = true
+    @AppStorage(AppSettingsKeys.chatAlerts) private var chatAlerts = true
     @AppStorage(AppSettingsKeys.autoRouteRecording) private var autoRouteRecording = true
     @AppStorage(AppSettingsKeys.useMiles) private var useMiles = false
     @AppStorage(AppSettingsKeys.mapStyle) private var mapStyleRaw = MapStyleChoice.standard.rawValue
@@ -118,6 +119,7 @@ struct SettingsDrawerView: View {
         Section("Notifications") {
             Toggle("Place Arrival & Departure", isOn: $placeAlerts)
             Toggle("Low Battery Alerts", isOn: $lowBatteryAlerts)
+            Toggle("Chat Messages", isOn: $chatAlerts)
         }
         .tint(.purple)
     }

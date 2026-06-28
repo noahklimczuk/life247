@@ -50,7 +50,18 @@ struct OperatorDetailView: View {
                     .padding(.vertical, 6)
                 }
 
+                if profile.isSOS {
+                    Section {
+                        Label("SOS active — \(profile.name) needs help", systemImage: "exclamationmark.triangle.fill")
+                            .font(.subheadline.bold())
+                            .foregroundColor(.red)
+                    }
+                }
+
                 Section("Current Location") {
+                    if let place = CircleSyncService.shared.place(for: profile) {
+                        detailRow(icon: "house.fill", title: "Place", value: "\(place.emojiIcon.isEmpty ? "📍" : place.emojiIcon)  \(place.name)")
+                    }
                     detailRow(icon: "mappin.and.ellipse", title: "Address", value: resolvedAddress)
                     detailRow(icon: "clock", title: "Time at location", value: dwellText)
                     detailRow(icon: "location",

@@ -21,6 +21,7 @@ struct TelemetryDashboardDrawer: View {
     @State private var selectedMember: UserState?
     @State private var pendingPlace: PendingPlace?
     @State private var editingZone: GeofenceZone?
+    @State private var selectedTrip: HistoricalRouteDrive?
 
     /// All circle members to display, ensuring the current operator always
     /// appears even before their first position reaches the shared database.
@@ -40,7 +41,8 @@ struct TelemetryDashboardDrawer: View {
             HStack(spacing: 0) {
                 TabButton(title: "Circle", index: 0, activeIndex: $activeTabPaneIndex)
                 TabButton(title: "Places", index: 1, activeIndex: $activeTabPaneIndex)
-                TabButton(title: "Routes", index: 2, activeIndex: $activeTabPaneIndex)
+                TabButton(title: "Driving", index: 2, activeIndex: $activeTabPaneIndex)
+                TabButton(title: "Safety", index: 3, activeIndex: $activeTabPaneIndex)
             }
             .padding(.horizontal, 16)
             
@@ -104,44 +106,91 @@ struct TelemetryDashboardDrawer: View {
                         .presentationDetents([.medium, .large])
                     }
                 
-                // TAB 2: ROUTES HISTORY LIST LAYER
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 14) {
-                        Text("Logged Driving Analytics History")
-                            .font(.headline)
-                            .padding(.bottom, 4)
-                        
-                        if trackingEngine.recordedDrivesHistory.isEmpty {
-                            Text("No driving operations archived yet.")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        } else {
-                            ForEach(trackingEngine.recordedDrivesHistory) { drive in
-                                VStack(alignment: .leading, spacing: 6) {
-                                    HStack {
-                                        Text("🚗 Automated Trip Drive").font(.subheadline).bold()
-                                        Spacer()
-                                        Text(drive.startTime, style: .date).font(.caption).foregroundColor(.secondary)
-                                    }
-                                    Text("Distance Covered: \(String(format: "%.2f", drive.totalDistanceMeters / 1000.0)) km")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                                .padding()
-                                .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemBackground)))
-                            }
-                        }
+                // TAB 2: DRIVING — TRIP HISTORY WITH TAP-THROUGH DETAIL
+                drivingPane
+                    .tag(2)
+                    .sheet(item: $selectedTrip) { trip in
+                        TripDetailView(drive: trip)
                     }
-                    .padding(16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .tag(2)
+
+                // TAB 3: SAFETY — SOS, CHECK-IN, CIRCLE STATUS
+                SafetyPaneView(
+                    roster: circleRoster,
+                    currentUserName: authContext.currentUserProfile?.name ?? ""
+                )
+                .tag(3)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
         }
         .background(Color(.systemBackground))
     }
     
+    // MARK: - Driving pane
+
+    private var drivingPane: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Text("Trips")
+                        .font(.title3).bold()
+                    Spacer()
+                    Text("\(trackingEngine.recordedDrivesHistory.count)")
+                        .font(.subheadline).bold()
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 8).padding(.vertical, 2)
+                        .background(Capsule().fill(Color(.tertiarySystemFill)))
+                }
+
+                if trackingEngine.recordedDrivesHistory.isEmpty {
+                    VStack(spacing: 6) {
+                        Image(systemName: "car")
+                            .font(.title).foregroundColor(.secondary)
+                        Text("No trips yet")
+                            .font(.subheadline).bold()
+                        Text("Trips are recorded automatically when you start driving.")
+                            .font(.caption).foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 40)
+                } else {
+                    ForEach(trackingEngine.recordedDrivesHistory) { drive in
+                        Button(action: { selectedTrip = drive }) {
+                            tripRow(drive)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func tripRow(_ drive: HistoricalRouteDrive) -> some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle().fill(Color.blue.opacity(0.15)).frame(width: 46, height: 46)
+                Image(systemName: "car.fill").foregroundColor(.blue)
+            }
+            VStack(alignment: .leading, spacing: 3) {
+                Text(drive.startTime, format: .dateTime.weekday().month().day().hour().minute())
+                    .font(.subheadline).bold().lineLimit(1)
+                HStack(spacing: 10) {
+                    Label(UnitFormatter.distanceString(meters: drive.totalDistanceMeters), systemImage: "ruler")
+                    Label(UnitFormatter.durationString(seconds: drive.duration), systemImage: "clock")
+                }
+                .font(.caption).foregroundColor(.secondary)
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption.bold())
+                .foregroundColor(.secondary.opacity(0.5))
+        }
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 18).fill(Color(.secondarySystemBackground)))
+    }
+
     // MARK: - Places pane
 
     private var placesPane: some View {

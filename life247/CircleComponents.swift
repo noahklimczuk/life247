@@ -104,6 +104,14 @@ struct CircleMemberRow: View {
 
     private var speedText: String { UnitFormatter.speedString(metersPerSecond: member.currentSpeed) }
 
+    /// The saved place the member is currently inside, if any.
+    private var presencePlace: GeofenceZone? {
+        let here = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        return trackingEngine.activeGeofences.first { zone in
+            here.distance(from: CLLocation(latitude: zone.latitude, longitude: zone.longitude)) <= zone.radius
+        }
+    }
+
     var body: some View {
         HStack(spacing: 14) {
             MemberAvatar(name: member.name, isCharging: charging, size: 52)
@@ -123,16 +131,30 @@ struct CircleMemberRow: View {
                     batteryBadge
                 }
 
-                Text(address)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
+                if let place = presencePlace {
+                    HStack(spacing: 5) {
+                        Text(place.emojiIcon.isEmpty ? "📍" : place.emojiIcon)
+                            .font(.caption)
+                        Text("at \(place.name)")
+                            .font(.subheadline).bold()
+                            .foregroundColor(.purple)
+                            .lineLimit(1)
+                    }
+                } else {
+                    Text(address)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
 
                 HStack(spacing: 8) {
                     Text(timeAgo)
                         .font(.caption)
                         .foregroundColor(.secondary)
                     movementBadge
+                    if member.isSOS {
+                        badge(text: "SOS", systemImage: "exclamationmark.triangle.fill", color: .red)
+                    }
                     Spacer()
                 }
             }

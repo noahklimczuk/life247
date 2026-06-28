@@ -22,8 +22,19 @@ final class CircleSyncService: ObservableObject {
     /// recently updated location/battery first resolved from the database.
     @Published var members: [UserState] = []
 
+    /// When true, this device is broadcasting an active SOS to the circle.
+    @Published var isBroadcastingSOS = false
+
     /// Lowercased username of the operator signed in on this device, if any.
     private(set) var currentUsername: String?
+
+    // Per-member previous state used to fire one-shot transition alerts.
+    private var previousPlaceIdByMember: [String: UUID] = [:]
+    private var previousBatteryByMember: [String: Int] = [:]
+    private var previousSOSByMember: [String: Bool] = [:]
+    private var didLoadInitialRoster = false
+
+    private let lowBatteryThreshold = 20
 
     private let circleID = "main"
 
@@ -67,6 +78,11 @@ final class CircleSyncService: ObservableObject {
         publishTimer?.invalidate()
         pollTimer?.invalidate()
 
+        previousPlaceIdByMember = [:]
+        previousBatteryByMember = [:]
+        previousSOSByMember = [:]
+        didLoadInitialRoster = false
+
         publishSelf()
         fetchMembers()
 
@@ -84,6 +100,14 @@ final class CircleSyncService: ObservableObject {
         publishTimer?.invalidate(); publishTimer = nil
         pollTimer?.invalidate(); pollTimer = nil
         currentUsername = nil
+        isBroadcastingSOS = false
+        didLoadInitialRoster = false
+    }
+
+    /// Toggles this device's SOS broadcast and pushes it out immediately.
+    func setSOS(_ active: Bool) {
+        isBroadcastingSOS = active
+        publishSelf()
     }
 
     // MARK: - Publish
@@ -106,6 +130,7 @@ final class CircleSyncService: ObservableObject {
             "longitude": coordinate.longitude,
             "batteryPercentage": BackgroundTrackingEngine.batteryPercentage(from: UIDevice.current.batteryLevel),
             "isCharging": isCharging,
+            "sos": isBroadcastingSOS,
             "currentSpeed": speed,
             "activity": Self.activity(forSpeedMetersPerSecond: speed).rawValue,
             "updatedAt": Date().timeIntervalSince1970
@@ -135,9 +160,75 @@ final class CircleSyncService: ObservableObject {
 
             let parsed = roster.values.compactMap { ($0 as? [String: Any]).flatMap(Self.decodeMember) }
             DispatchQueue.main.async {
-                self.members = parsed.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+                let sorted = parsed.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+                self.detectAndAlertTransitions(for: sorted)
+                self.members = sorted
             }
         }.resume()
+    }
+
+    // MARK: - Presence & alerts
+
+    /// The saved place a member is currently inside, if any.
+    func place(for member: UserState) -> GeofenceZone? {
+        containingZone(latitude: member.latitude, longitude: member.longitude)
+    }
+
+    private func containingZone(latitude: Double, longitude: Double) -> GeofenceZone? {
+        let here = CLLocation(latitude: latitude, longitude: longitude)
+        return BackgroundTrackingEngine.shared.activeGeofences.first { zone in
+            here.distance(from: CLLocation(latitude: zone.latitude, longitude: zone.longitude)) <= zone.radius
+        }
+    }
+
+    /// Compares the freshly fetched roster against the previous snapshot and fires
+    /// one-shot local notifications for the partner's place/battery/SOS changes.
+    /// The first roster after sign-in only seeds state so it stays silent.
+    private func detectAndAlertTransitions(for roster: [UserState]) {
+        defer { didLoadInitialRoster = true }
+
+        for member in roster {
+            let key = member.name.lowercased()
+            if let me = currentUsername, key == me { continue }
+
+            let zone = containingZone(latitude: member.latitude, longitude: member.longitude)
+            let previousZoneID = previousPlaceIdByMember[key]
+            let previousBattery = previousBatteryByMember[key]
+            let previousSOS = previousSOSByMember[key] ?? false
+
+            if didLoadInitialRoster {
+                // Place arrival / departure.
+                if let zone, previousZoneID != zone.id {
+                    NotificationManager.shared.post(title: "\(member.name) arrived",
+                                                    body: "\(member.name) is at \(zone.name)",
+                                                    category: .place)
+                } else if zone == nil, let previousZoneID,
+                          let previousZone = BackgroundTrackingEngine.shared.activeGeofences.first(where: { $0.id == previousZoneID }) {
+                    NotificationManager.shared.post(title: "\(member.name) left",
+                                                    body: "\(member.name) left \(previousZone.name)",
+                                                    category: .place)
+                }
+
+                // Low battery (only when crossing the threshold downward).
+                if let previousBattery, previousBattery >= lowBatteryThreshold,
+                   member.batteryPercentage < lowBatteryThreshold, !member.isCharging {
+                    NotificationManager.shared.post(title: "\(member.name)'s phone is low",
+                                                    body: "Battery at \(member.batteryPercentage)%",
+                                                    category: .battery)
+                }
+
+                // SOS raised.
+                if member.isSOS, !previousSOS {
+                    NotificationManager.shared.post(title: "🆘 \(member.name) needs help",
+                                                    body: "\(member.name) triggered an SOS. Open life247 to see their location.",
+                                                    category: .sos)
+                }
+            }
+
+            previousPlaceIdByMember[key] = zone?.id
+            previousBatteryByMember[key] = member.batteryPercentage
+            previousSOSByMember[key] = member.isSOS
+        }
     }
 
     /// Maps a raw speed (m/s) to a coarse activity classification.
@@ -157,6 +248,7 @@ final class CircleSyncService: ObservableObject {
 
         let battery = (dict["batteryPercentage"] as? NSNumber)?.intValue ?? 100
         let isCharging = (dict["isCharging"] as? NSNumber)?.boolValue ?? false
+        let isSOS = (dict["sos"] as? NSNumber)?.boolValue ?? false
         let speed = (dict["currentSpeed"] as? NSNumber)?.doubleValue ?? 0.0
         let activity = (dict["activity"] as? String).flatMap { TrackedUserActivity(rawValue: $0) } ?? .stationary
         let updatedAt = (dict["updatedAt"] as? NSNumber)?.doubleValue
@@ -170,6 +262,7 @@ final class CircleSyncService: ObservableObject {
             currentSpeed: speed,
             activity: activity,
             isCharging: isCharging,
+            isSOS: isSOS,
             atLocationSince: updatedAt.map { Date(timeIntervalSince1970: $0) } ?? Date()
         )
     }
