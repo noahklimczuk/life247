@@ -9,6 +9,6 @@
 		<string>fetch</string>
 	</array>
 	<key>FirebaseDatabaseURL</key>
-	<string></string>
+	<string>https://life-247-8f6da-default-rtdb.firebaseio.com</string>
 </dict>
 </plist>

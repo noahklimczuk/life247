@@ -42,7 +42,8 @@ final class CircleSyncService: ObservableObject {
     /// pastes it into Info.plist, in which case the service no-ops gracefully.
     private var databaseURL: String? {
         guard let raw = Bundle.main.object(forInfoDictionaryKey: "FirebaseDatabaseURL") as? String else { return nil }
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        var trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        while trimmed.hasSuffix("/") { trimmed.removeLast() }
         return trimmed.isEmpty ? nil : trimmed
     }
 
