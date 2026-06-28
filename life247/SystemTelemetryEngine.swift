@@ -17,6 +17,8 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
     static let shared = BackgroundTrackingEngine()
     
     @Published var liveLocation: CLLocationCoordinate2D?
+    /// Most recent speed in metres/second (0 when unknown or stationary).
+    @Published var liveSpeed: Double = 0
     @Published var liveTrackingActive = false
     @Published var recordedDrivesHistory: [HistoricalRouteDrive] = []
     @Published var activeGeofences: [GeofenceZone] = []
@@ -178,6 +180,7 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
         guard let location = locations.last else { return }
         DispatchQueue.main.async {
             self.liveLocation = location.coordinate
+            self.liveSpeed = max(0, location.speed)
             if self.liveTrackingActive {
                 if let lastNode = self.pathSequence.last {
                     let delta = location.distance(from: CLLocation(latitude: lastNode.latitude, longitude: lastNode.longitude))
