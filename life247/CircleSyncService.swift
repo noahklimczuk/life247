@@ -147,7 +147,7 @@ final class CircleSyncService: ObservableObject {
         return .stationary
     }
 
-    private static func decodeMember(_ dict: [String: Any]) -> UserState? {
+    private nonisolated static func decodeMember(_ dict: [String: Any]) -> UserState? {
         guard let id = dict["id"] as? String,
               let name = dict["name"] as? String,
               let latitude = (dict["latitude"] as? NSNumber)?.doubleValue,
