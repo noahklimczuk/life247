@@ -6,6 +6,7 @@
 import SwiftUI
 import Combine
 import CoreLocation
+import MapKit
 
 /// Detailed account view for an operator: name, reverse-geocoded address and a
 /// live "time at location" counter. Presented from the Circle tab and from the
@@ -108,21 +109,15 @@ struct OperatorDetailView: View {
     private func resolveAddress() {
         let coordinate = currentCoordinate
         let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
-        CLGeocoder().reverseGeocodeLocation(location) { placemarks, _ in
-            guard let placemark = placemarks?.first else {
-                DispatchQueue.main.async { self.resolvedAddress = "Address unavailable" }
-                return
-            }
+        guard let request = MKReverseGeocodingRequest(location: location) else {
+            resolvedAddress = "Address unavailable"
+            return
+        }
 
-            let street = [placemark.subThoroughfare, placemark.thoroughfare]
-                .compactMap { $0 }
-                .joined(separator: " ")
-            let parts = [street, placemark.locality, placemark.administrativeArea, placemark.postalCode]
-                .compactMap { $0 }
-                .filter { !$0.isEmpty }
-
-            DispatchQueue.main.async {
-                self.resolvedAddress = parts.isEmpty ? "Address unavailable" : parts.joined(separator: ", ")
+        Task {
+            let address = try? await request.mapItems.first?.address?.fullAddress
+            await MainActor.run {
+                self.resolvedAddress = address ?? "Address unavailable"
             }
         }
     }
