@@ -14,6 +14,7 @@ struct LocalMapMarkerIdentifier: Identifiable {
     let name: String
     let coordinate: CLLocationCoordinate2D
     let isCurrentUser: Bool
+    var isCharging: Bool = false
 }
 
 struct MainApplicationTelemetryWorkspace: View {
@@ -75,16 +76,8 @@ struct MainApplicationTelemetryWorkspace: View {
                                             }
                                         }
                                     } else {
-                                        ZStack {
-                                            Circle()
-                                                .fill(Color.purple)
-                                                .frame(width: 44, height: 44)
-
-                                            Text(String(pin.name.prefix(2)).uppercased())
-                                                .font(.system(size: 13, weight: .bold))
-                                                .foregroundColor(.white)
-                                                .frame(width: 44, height: 44, alignment: .center)
-                                        }
+                                        MemberAvatar(name: pin.name, isCharging: pin.isCharging, size: 46)
+                                            .shadow(color: .black.opacity(0.2), radius: 3, x: 0, y: 1)
                                     }
                                     
                                     Text(pin.name)
@@ -95,6 +88,12 @@ struct MainApplicationTelemetryWorkspace: View {
                                         .background(Capsule().fill(Color(.systemBackground)).shadow(radius: 1))
                                 }
                                 .onTapGesture {
+                                    withAnimation(.easeInOut(duration: 0.4)) {
+                                        viewportCamera = .region(MKCoordinateRegion(
+                                            center: pin.coordinate,
+                                            span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+                                        ))
+                                    }
                                     contextualSheetPresented = false
                                     if pin.isCurrentUser {
                                         showUserDetailSheet = true
@@ -318,7 +317,8 @@ struct MainApplicationTelemetryWorkspace: View {
                     id: member.id,
                     name: member.name,
                     coordinate: member.coordinate,
-                    isCurrentUser: false
+                    isCurrentUser: false,
+                    isCharging: member.isCharging
                 )
             )
         }

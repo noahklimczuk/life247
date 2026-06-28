@@ -95,6 +95,8 @@ final class CircleSyncService: ObservableObject {
               let url = URL(string: "\(base)/circles/\(circleID)/members/\(username).json") else { return }
 
         let speed = max(0, BackgroundTrackingEngine.shared.liveSpeed)
+        let state = UIDevice.current.batteryState
+        let isCharging = (state == .charging || state == .full)
 
         let payload: [String: Any] = [
             "id": memberID,
@@ -102,6 +104,7 @@ final class CircleSyncService: ObservableObject {
             "latitude": coordinate.latitude,
             "longitude": coordinate.longitude,
             "batteryPercentage": BackgroundTrackingEngine.batteryPercentage(from: UIDevice.current.batteryLevel),
+            "isCharging": isCharging,
             "currentSpeed": speed,
             "activity": Self.activity(forSpeedMetersPerSecond: speed).rawValue,
             "updatedAt": Date().timeIntervalSince1970
@@ -152,6 +155,7 @@ final class CircleSyncService: ObservableObject {
               CLLocationCoordinate2DIsValid(CLLocationCoordinate2D(latitude: latitude, longitude: longitude)) else { return nil }
 
         let battery = (dict["batteryPercentage"] as? NSNumber)?.intValue ?? 100
+        let isCharging = (dict["isCharging"] as? NSNumber)?.boolValue ?? false
         let speed = (dict["currentSpeed"] as? NSNumber)?.doubleValue ?? 0.0
         let activity = (dict["activity"] as? String).flatMap { TrackedUserActivity(rawValue: $0) } ?? .stationary
         let updatedAt = (dict["updatedAt"] as? NSNumber)?.doubleValue
@@ -164,6 +168,7 @@ final class CircleSyncService: ObservableObject {
             batteryPercentage: battery,
             currentSpeed: speed,
             activity: activity,
+            isCharging: isCharging,
             atLocationSince: updatedAt.map { Date(timeIntervalSince1970: $0) } ?? Date()
         )
     }
