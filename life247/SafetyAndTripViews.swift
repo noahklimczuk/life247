@@ -42,7 +42,7 @@ struct TripDetailView: View {
                 Map(initialPosition: .region(routeRegion)) {
                     if drive.breadcrumbs.count > 1 {
                         MapPolyline(coordinates: drive.breadcrumbs)
-                            .stroke(.blue, lineWidth: 5)
+                            .stroke(drive.isDriving ? .blue : .teal, lineWidth: 5)
                     }
                     if let start = drive.breadcrumbs.first {
                         Annotation("Start", coordinate: start) {
@@ -71,8 +71,15 @@ struct TripDetailView: View {
 
     private var statsBar: some View {
         VStack(spacing: 14) {
-            Text(drive.startTime, format: .dateTime.weekday().month().day().hour().minute())
-                .font(.subheadline).foregroundColor(.secondary)
+            HStack(spacing: 8) {
+                Label(drive.modeLabel, systemImage: drive.modeSymbol)
+                    .font(.caption.bold())
+                    .foregroundColor(drive.isDriving ? .blue : .teal)
+                    .padding(.horizontal, 8).padding(.vertical, 3)
+                    .background(Capsule().fill((drive.isDriving ? Color.blue : Color.teal).opacity(0.15)))
+                Text(drive.startTime, format: .dateTime.weekday().month().day().hour().minute())
+                    .font(.subheadline).foregroundColor(.secondary)
+            }
 
             HStack(spacing: 0) {
                 stat(title: "Distance", value: UnitFormatter.distanceString(meters: drive.totalDistanceMeters), icon: "ruler")

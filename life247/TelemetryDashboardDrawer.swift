@@ -41,7 +41,7 @@ struct TelemetryDashboardDrawer: View {
             HStack(spacing: 0) {
                 TabButton(title: "Circle", index: 0, activeIndex: $activeTabPaneIndex)
                 TabButton(title: "Places", index: 1, activeIndex: $activeTabPaneIndex)
-                TabButton(title: "Driving", index: 2, activeIndex: $activeTabPaneIndex)
+                TabButton(title: "Trips", index: 2, activeIndex: $activeTabPaneIndex)
                 TabButton(title: "Safety", index: 3, activeIndex: $activeTabPaneIndex)
             }
             .padding(.horizontal, 16)
@@ -147,7 +147,7 @@ struct TelemetryDashboardDrawer: View {
                             .font(.title).foregroundColor(.secondary)
                         Text("No trips yet")
                             .font(.subheadline).bold()
-                        Text("Trips are recorded automatically when you start driving.")
+                        Text("Trips are recorded automatically when you start walking or driving.")
                             .font(.caption).foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
                     }
@@ -168,14 +168,22 @@ struct TelemetryDashboardDrawer: View {
     }
 
     private func tripRow(_ drive: HistoricalRouteDrive) -> some View {
-        HStack(spacing: 14) {
+        let tint: Color = drive.isDriving ? .blue : .teal
+        return HStack(spacing: 14) {
             ZStack {
-                Circle().fill(Color.blue.opacity(0.15)).frame(width: 46, height: 46)
-                Image(systemName: "car.fill").foregroundColor(.blue)
+                Circle().fill(tint.opacity(0.15)).frame(width: 46, height: 46)
+                Image(systemName: drive.modeSymbol).foregroundColor(tint)
             }
             VStack(alignment: .leading, spacing: 3) {
-                Text(drive.startTime, format: .dateTime.weekday().month().day().hour().minute())
-                    .font(.subheadline).bold().lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(drive.modeLabel)
+                        .font(.caption2.bold())
+                        .foregroundColor(tint)
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(Capsule().fill(tint.opacity(0.15)))
+                    Text(drive.startTime, format: .dateTime.weekday().month().day().hour().minute())
+                        .font(.subheadline).bold().lineLimit(1)
+                }
                 HStack(spacing: 10) {
                     Label(UnitFormatter.distanceString(meters: drive.totalDistanceMeters), systemImage: "ruler")
                     Label(UnitFormatter.durationString(seconds: drive.duration), systemImage: "clock")
