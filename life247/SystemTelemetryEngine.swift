@@ -77,7 +77,7 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
     
     /// Converts a raw `UIDevice` battery level (-1 when unknown, e.g. Simulator) into a 0-100 percentage.
     static func batteryPercentage(from level: Float) -> Int {
-        level < 0 ? 100 : Int(level * 100)
+        level < 0 ? 100 : Int((level * 100).rounded())
     }
 
     func initializeSystemHardwareAccess() {
@@ -146,11 +146,9 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
     func registerGeofenceHardwareBoundary(for zone: GeofenceZone) {
         DispatchQueue.main.async {
             self.activeGeofences.append(zone)
-            let region = CLCircularRegion(center: zone.coordinate, radius: zone.radius, identifier: zone.id.uuidString)
-            region.notifyOnEntry = true
-            region.notifyOnExit = true
-            self.locationManager.startMonitoring(for: region)
+            self.startMonitoring(for: zone)
             self.persistGeofences()
+            PlacesSyncService.shared.publish(zone)
         }
     }
     
@@ -163,15 +161,10 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
             self.activeGeofences[index] = zone
 
             if radiusChanged {
-                if let region = self.locationManager.monitoredRegions.first(where: { $0.identifier == zone.id.uuidString }) {
-                    self.locationManager.stopMonitoring(for: region)
-                }
-                let region = CLCircularRegion(center: zone.coordinate, radius: zone.radius, identifier: zone.id.uuidString)
-                region.notifyOnEntry = true
-                region.notifyOnExit = true
-                self.locationManager.startMonitoring(for: region)
+                self.rearmMonitoring(for: zone)
             }
             self.persistGeofences()
+            PlacesSyncService.shared.publish(zone)
         }
     }
 
@@ -190,7 +183,58 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
                 self.teardownZoneMetrologyTracking()
             }
             self.persistGeofences()
+            PlacesSyncService.shared.remove(id: id)
         }
+    }
+
+    // MARK: - Circle-synced places
+
+    /// Adds or updates a place that arrived from the shared circle copy, re-arming
+    /// monitoring when its geometry changed. Does not re-publish (avoids sync loops).
+    func upsertSyncedGeofence(_ zone: GeofenceZone) {
+        DispatchQueue.main.async {
+            if let index = self.activeGeofences.firstIndex(where: { $0.id == zone.id }) {
+                guard self.activeGeofences[index] != zone else { return }
+                let geometryChanged = self.activeGeofences[index].radius != zone.radius
+                    || self.activeGeofences[index].latitude != zone.latitude
+                    || self.activeGeofences[index].longitude != zone.longitude
+                self.activeGeofences[index] = zone
+                if geometryChanged { self.rearmMonitoring(for: zone) }
+            } else {
+                self.activeGeofences.append(zone)
+                self.startMonitoring(for: zone)
+            }
+            self.persistGeofences()
+        }
+    }
+
+    /// Removes a place that was deleted elsewhere in the circle. Does not re-publish.
+    func removeSyncedGeofence(id: UUID) {
+        DispatchQueue.main.async {
+            guard self.activeGeofences.contains(where: { $0.id == id }) else { return }
+            self.activeGeofences.removeAll(where: { $0.id == id })
+            if let targetRegion = self.locationManager.monitoredRegions.first(where: { $0.identifier == id.uuidString }) {
+                self.locationManager.stopMonitoring(for: targetRegion)
+            }
+            if self.currentActiveZoneID == id {
+                self.teardownZoneMetrologyTracking()
+            }
+            self.persistGeofences()
+        }
+    }
+
+    private func startMonitoring(for zone: GeofenceZone) {
+        let region = CLCircularRegion(center: zone.coordinate, radius: zone.radius, identifier: zone.id.uuidString)
+        region.notifyOnEntry = true
+        region.notifyOnExit = true
+        locationManager.startMonitoring(for: region)
+    }
+
+    private func rearmMonitoring(for zone: GeofenceZone) {
+        if let region = locationManager.monitoredRegions.first(where: { $0.identifier == zone.id.uuidString }) {
+            locationManager.stopMonitoring(for: region)
+        }
+        startMonitoring(for: zone)
     }
 
     /// Persists the current saved places to disk so they survive app shutdown.
@@ -208,10 +252,7 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
 
         for zone in zones where !activeGeofences.contains(where: { $0.id == zone.id }) {
             activeGeofences.append(zone)
-            let region = CLCircularRegion(center: zone.coordinate, radius: zone.radius, identifier: zone.id.uuidString)
-            region.notifyOnEntry = true
-            region.notifyOnExit = true
-            locationManager.startMonitoring(for: region)
+            startMonitoring(for: zone)
         }
     }
     
