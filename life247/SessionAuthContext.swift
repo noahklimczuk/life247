@@ -58,6 +58,7 @@ class SessionAuthContext: ObservableObject {
                         RelayPushService.shared.currentUserName = profile.name
                         CircleSyncService.shared.start(id: profile.id, name: profile.name, username: restoredName.lowercased())
                         CircleChatService.shared.start(senderId: restoredName.lowercased(), senderName: profile.name)
+                        PlacesSyncService.shared.start()
                     }
                 }
             }
@@ -109,6 +110,7 @@ class SessionAuthContext: ObservableObject {
                     RelayPushService.shared.currentUserName = profile.name
                     CircleSyncService.shared.start(id: profile.id, name: profile.name, username: cleanUsername)
                     CircleChatService.shared.start(senderId: cleanUsername, senderName: profile.name)
+                    PlacesSyncService.shared.start()
                 }
             }
         } else {
@@ -131,6 +133,7 @@ class SessionAuthContext: ObservableObject {
         KeychainHelper.shared.delete(service: keychainIdentifier, account: "user_name")
         CircleSyncService.shared.stop()
         CircleChatService.shared.stop()
+        PlacesSyncService.shared.stop()
         RelayPushService.shared.currentUserName = nil
         
         DispatchQueue.main.async { [weak self] in

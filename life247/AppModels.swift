@@ -47,7 +47,7 @@ struct ChatMessage: Identifiable, Codable, Equatable {
 
 // MARK: - Geofence Zone
 
-struct GeofenceZone: Identifiable, Codable {
+struct GeofenceZone: Identifiable, Codable, Equatable {
     let id: UUID
     var name: String
     let latitude: Double

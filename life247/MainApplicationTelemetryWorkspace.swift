@@ -15,6 +15,7 @@ struct LocalMapMarkerIdentifier: Identifiable {
     let coordinate: CLLocationCoordinate2D
     let isCurrentUser: Bool
     var isCharging: Bool = false
+    var batteryPercentage: Int = 100
 }
 
 struct MainApplicationTelemetryWorkspace: View {
@@ -24,7 +25,6 @@ struct MainApplicationTelemetryWorkspace: View {
     
     @State private var viewportCamera: MapCameraPosition = .userLocation(fallback: .automatic)
     @State private var contextualSheetPresented = true
-    @State private var dynamicGeofenceZones: [GeofenceZone] = []
     
     // Controls the visible open state of the side drawer panel
     @State private var showHamburgerMenu = false
@@ -46,15 +46,12 @@ struct MainApplicationTelemetryWorkspace: View {
                     Map(position: $viewportCamera) {
                         ForEach(getMapPins()) { pin in
                             Annotation("", coordinate: pin.coordinate) {
-                                MemberMapMarker(
-                                    pin: pin,
-                                    showBatteryBadge: authContext.currentUserProfile != nil
-                                )
-                                .onTapGesture { focusOnPin(pin) }
+                                MemberMapMarker(pin: pin)
+                                    .onTapGesture { focusOnPin(pin) }
                             }
                         }
                         
-                        ForEach(dynamicGeofenceZones) { place in
+                        ForEach(trackingEngine.activeGeofences) { place in
                             Annotation("", coordinate: place.coordinate) {
                                 PlaceMapMarker(place: place)
                             }
@@ -127,7 +124,7 @@ struct MainApplicationTelemetryWorkspace: View {
                 .offset(x: showHamburgerMenu ? 0 : -menuWidth)
             }
             .sheet(isPresented: $contextualSheetPresented) {
-                TelemetryDashboardDrawer(registeredZones: $dynamicGeofenceZones)
+                TelemetryDashboardDrawer()
                     .presentationDetents([.height(88), .medium, .large])
                     .presentationBackgroundInteraction(.enabled(upThrough: .medium))
                     .presentationCornerRadius(30)
@@ -152,19 +149,9 @@ struct MainApplicationTelemetryWorkspace: View {
             } message: {
                 Text("Your circle will be alerted with your live location until you cancel.")
             }
-            // FIXED: Uses standard array count tracking expression which resolves the Hashable non-conformance compiler failure
-            .onChange(of: dynamicGeofenceZones.count) { oldCount, newCount in
-                for zone in dynamicGeofenceZones {
-                    if !trackingEngine.activeGeofences.contains(where: { $0.id == zone.id }) {
-                        trackingEngine.registerGeofenceHardwareBoundary(for: zone)
-                    }
-                }
-            }
             .task {
                 trackingEngine.applyAccuracyPreference(highAccuracy: highAccuracy)
-                trackingEngine.restorePersistedGeofences()
                 trackingEngine.beginAmbientLocationUpdates()
-                self.dynamicGeofenceZones = trackingEngine.activeGeofences
             }
         }
     }
@@ -221,7 +208,9 @@ struct MainApplicationTelemetryWorkspace: View {
                     id: profile.id,
                     name: profile.name,
                     coordinate: dynamicCoordinate,
-                    isCurrentUser: true
+                    isCurrentUser: true,
+                    isCharging: profile.isCharging,
+                    batteryPercentage: profile.batteryPercentage
                 )
             )
         }
@@ -235,7 +224,8 @@ struct MainApplicationTelemetryWorkspace: View {
                     name: member.name,
                     coordinate: member.coordinate,
                     isCurrentUser: false,
-                    isCharging: member.isCharging
+                    isCharging: member.isCharging,
+                    batteryPercentage: member.batteryPercentage
                 )
             )
         }
@@ -263,7 +253,6 @@ struct MainApplicationTelemetryWorkspace: View {
 
 private struct MemberMapMarker: View {
     let pin: LocalMapMarkerIdentifier
-    let showBatteryBadge: Bool
 
     var body: some View {
         VStack(spacing: 2) {
@@ -274,34 +263,37 @@ private struct MemberMapMarker: View {
                     .shadow(color: .black.opacity(0.2), radius: 3, x: 0, y: 1)
             }
 
-            Text(pin.name)
-                .font(.caption2)
-                .bold()
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(Capsule().fill(Color(.systemBackground)).shadow(radius: 1))
+            HStack(spacing: 4) {
+                Text(pin.name)
+                batteryTag
+            }
+            .font(.caption2)
+            .bold()
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Capsule().fill(Color(.systemBackground)).shadow(radius: 1))
         }
+    }
+
+    /// Exact battery percentage shown on the pin, with a charging bolt when plugged in.
+    private var batteryTag: some View {
+        HStack(spacing: 2) {
+            Image(systemName: pin.isCharging ? "bolt.fill" : "battery.100")
+                .font(.system(size: 8))
+            Text("\(pin.batteryPercentage)%")
+        }
+        .foregroundColor(pin.isCharging ? .green : (pin.batteryPercentage < 20 ? .red : .secondary))
     }
 
     // Find My-style blue location dot: soft accuracy halo, white ring, solid core.
     private var currentUserDot: some View {
-        ZStack(alignment: .bottomTrailing) {
-            ZStack {
-                Circle().fill(Color.blue.opacity(0.18)).frame(width: 58, height: 58)
-                Circle().fill(Color.white).frame(width: 28, height: 28)
-                    .shadow(color: .black.opacity(0.25), radius: 3, x: 0, y: 1)
-                Circle().fill(Color.blue).frame(width: 22, height: 22)
-            }
-            .frame(width: 58, height: 58)
-
-            if showBatteryBadge {
-                ZStack {
-                    Circle().fill(Color.black.opacity(0.8)).frame(width: 18, height: 18)
-                    Text("🔋").font(.system(size: 10))
-                }
-                .offset(x: 2, y: 2)
-            }
+        ZStack {
+            Circle().fill(Color.blue.opacity(0.18)).frame(width: 58, height: 58)
+            Circle().fill(Color.white).frame(width: 28, height: 28)
+                .shadow(color: .black.opacity(0.25), radius: 3, x: 0, y: 1)
+            Circle().fill(Color.blue).frame(width: 22, height: 22)
         }
+        .frame(width: 58, height: 58)
     }
 }
 

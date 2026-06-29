@@ -12,7 +12,6 @@ struct TelemetryDashboardDrawer: View {
     @EnvironmentObject var authContext: SessionAuthContext
     @EnvironmentObject var trackingEngine: BackgroundTrackingEngine
     @EnvironmentObject var circleSync: CircleSyncService
-    @Binding var registeredZones: [GeofenceZone]
     
     @State private var activeTabPaneIndex = 0
     @StateObject private var appleLookupService = AppleAddressLookupService()
@@ -261,7 +260,7 @@ struct TelemetryDashboardDrawer: View {
                     Text("Saved Places")
                         .font(.title3).bold()
                     Spacer()
-                    Text("\(registeredZones.count)")
+                    Text("\(trackingEngine.activeGeofences.count)")
                         .font(.subheadline).bold()
                         .foregroundColor(.secondary)
                         .padding(.horizontal, 8).padding(.vertical, 2)
@@ -269,7 +268,7 @@ struct TelemetryDashboardDrawer: View {
                 }
                 .padding(.horizontal, 2)
 
-                if registeredZones.isEmpty {
+                if trackingEngine.activeGeofences.isEmpty {
                     VStack(spacing: 6) {
                         Image(systemName: "mappin.slash")
                             .font(.title)
@@ -284,7 +283,7 @@ struct TelemetryDashboardDrawer: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 40)
                 } else {
-                    ForEach(registeredZones) { zone in
+                    ForEach(trackingEngine.activeGeofences) { zone in
                         Button(action: { editingZone = zone }) {
                             placeRow(zone)
                         }
@@ -336,20 +335,15 @@ struct TelemetryDashboardDrawer: View {
     }
 
     private func addPlace(_ zone: GeofenceZone) {
-        registeredZones.append(zone)
         trackingEngine.registerGeofenceHardwareBoundary(for: zone)
     }
 
     private func applyPlaceEdit(_ zone: GeofenceZone) {
-        if let index = registeredZones.firstIndex(where: { $0.id == zone.id }) {
-            registeredZones[index] = zone
-        }
         trackingEngine.updateGeofenceZone(zone)
     }
 
     private func deletePlace(_ zone: GeofenceZone) {
         trackingEngine.clearGeofenceZone(id: zone.id)
-        registeredZones.removeAll(where: { $0.id == zone.id })
     }
 }
 
