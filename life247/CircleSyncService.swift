@@ -160,7 +160,8 @@ final class CircleSyncService: ObservableObject {
             "sos": isBroadcastingSOS,
             "currentSpeed": speed,
             "activity": Self.activity(forSpeedMetersPerSecond: speed).rawValue,
-            "updatedAt": Date().timeIntervalSince1970
+            "updatedAt": Date().timeIntervalSince1970,
+            "atLocationSince": BackgroundTrackingEngine.shared.atLocationSince.timeIntervalSince1970
         ]
         if let memberAvatar { payload["avatar"] = memberAvatar }
 
@@ -283,6 +284,7 @@ final class CircleSyncService: ObservableObject {
         let speed = (dict["currentSpeed"] as? NSNumber)?.doubleValue ?? 0.0
         let activity = (dict["activity"] as? String).flatMap { TrackedUserActivity(rawValue: $0) } ?? .stationary
         let updatedAt = (dict["updatedAt"] as? NSNumber)?.doubleValue
+        let atLocationSinceTs = (dict["atLocationSince"] as? NSNumber)?.doubleValue
         let username = (dict["username"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? fallbackUsername
         let avatar = (dict["avatar"] as? String).flatMap { $0.isEmpty ? nil : $0 }
 
@@ -298,7 +300,10 @@ final class CircleSyncService: ObservableObject {
             isCharging: isCharging,
             isSOS: isSOS,
             avatarBase64: avatar,
-            atLocationSince: updatedAt.map { Date(timeIntervalSince1970: $0) } ?? Date()
+            atLocationSince: atLocationSinceTs.map { Date(timeIntervalSince1970: $0) }
+                ?? updatedAt.map { Date(timeIntervalSince1970: $0) }
+                ?? Date(),
+            lastUpdated: updatedAt.map { Date(timeIntervalSince1970: $0) } ?? Date()
         )
     }
 }

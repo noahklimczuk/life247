@@ -25,6 +25,15 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
     
     @Published var currentActiveZoneID: UUID? = nil
     @Published var insideZoneTimerText = "00:00:00"
+
+    /// When the operator last settled at their current location. Persisted and
+    /// only reset on real movement, so it survives app restarts.
+    @Published var atLocationSince: Date = Date()
+    private var locationAnchor: CLLocationCoordinate2D?
+    private let locationAnchorResetMeters: Double = 150
+    private let persistedAnchorLatKey = "life247.anchorLat"
+    private let persistedAnchorLonKey = "life247.anchorLon"
+    private let persistedAtLocationSinceKey = "life247.atLocationSince"
     
     private let locationManager = CLLocationManager()
     private var driveStartedDate: Date?
@@ -50,6 +59,7 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
         locationManager.pausesLocationUpdatesAutomatically = false
         
         UIDevice.current.isBatteryMonitoringEnabled = true
+        restoreLocationAnchor()
     }
     
     func startLiveBatteryMonitoring(authContext: SessionAuthContext) {
@@ -265,6 +275,7 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
             let speed = max(0, location.speed)
             self.liveLocation = location.coordinate
             self.liveSpeed = speed
+            self.updateLocationDwell(for: location)
             if self.liveTrackingActive {
                 self.driveMaxSpeed = max(self.driveMaxSpeed, speed)
                 if let lastNode = self.pathSequence.last {
@@ -316,6 +327,44 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
                 synchronizeTrackingState(isActive: false)
             }
         }
+    }
+
+    // MARK: - Time at location
+
+    /// Restores the persisted location anchor and dwell start so the "time at
+    /// location" counter keeps running across app restarts.
+    private func restoreLocationAnchor() {
+        let defaults = UserDefaults.standard
+        if let since = defaults.object(forKey: persistedAtLocationSinceKey) as? Double {
+            atLocationSince = Date(timeIntervalSince1970: since)
+        }
+        if defaults.object(forKey: persistedAnchorLatKey) != nil {
+            locationAnchor = CLLocationCoordinate2D(
+                latitude: defaults.double(forKey: persistedAnchorLatKey),
+                longitude: defaults.double(forKey: persistedAnchorLonKey)
+            )
+        }
+    }
+
+    /// Keeps the dwell timer running while the operator stays put and restarts it
+    /// only once they move beyond `locationAnchorResetMeters` from the anchor.
+    private func updateLocationDwell(for location: CLLocation) {
+        if let anchor = locationAnchor {
+            let moved = location.distance(from: CLLocation(latitude: anchor.latitude, longitude: anchor.longitude))
+            if moved <= locationAnchorResetMeters { return }
+        }
+        locationAnchor = location.coordinate
+        atLocationSince = Date()
+        persistLocationAnchor()
+    }
+
+    private func persistLocationAnchor() {
+        let defaults = UserDefaults.standard
+        if let anchor = locationAnchor {
+            defaults.set(anchor.latitude, forKey: persistedAnchorLatKey)
+            defaults.set(anchor.longitude, forKey: persistedAnchorLonKey)
+        }
+        defaults.set(atLocationSince.timeIntervalSince1970, forKey: persistedAtLocationSinceKey)
     }
 
     /// Whether the operator's live position currently falls inside any saved place.

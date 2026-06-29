@@ -99,9 +99,16 @@ struct OperatorDetailView: View {
         return parts.joined(separator: "  •  ")
     }
 
+    /// When the operator settled at their current location. For this device's
+    /// user we use the engine's persisted anchor (survives restarts); for the
+    /// partner we use the value they shared through the circle.
+    private var atLocationSince: Date {
+        isCurrentUser ? trackingEngine.atLocationSince : profile.atLocationSince
+    }
+
     /// Human-readable elapsed time since the operator arrived at the location.
     private var dwellText: String {
-        let elapsed = max(0, now.timeIntervalSince(profile.atLocationSince))
+        let elapsed = max(0, now.timeIntervalSince(atLocationSince))
         let hours = Int(elapsed) / 3600
         let minutes = (Int(elapsed) % 3600) / 60
         let seconds = Int(elapsed) % 60

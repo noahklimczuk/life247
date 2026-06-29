@@ -275,7 +275,7 @@ struct CircleMemberRow: View {
 
     private var timeAgo: String {
         if isCurrentUser { return "Now" }
-        let seconds = Date().timeIntervalSince(member.atLocationSince)
+        let seconds = Date().timeIntervalSince(member.lastUpdated)
         switch seconds {
         case ..<60: return "Now"
         case ..<3600: return "\(Int(seconds / 60)) min ago"
