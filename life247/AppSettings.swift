@@ -17,6 +17,8 @@ enum AppSettingsKeys {
     static let autoRouteRecording = "life247.autoRouteRecording"
     static let useMiles = "life247.useMiles"
     static let mapStyle = "life247.mapStyle"
+    static let relayPushEnabled = "life247.relayPushEnabled"
+    static let relayTopic = "life247.relayTopic"
 }
 
 extension UserDefaults {
@@ -30,7 +32,9 @@ extension UserDefaults {
             AppSettingsKeys.chatAlerts: true,
             AppSettingsKeys.autoRouteRecording: true,
             AppSettingsKeys.useMiles: false,
-            AppSettingsKeys.mapStyle: MapStyleChoice.standard.rawValue
+            AppSettingsKeys.mapStyle: MapStyleChoice.standard.rawValue,
+            AppSettingsKeys.relayPushEnabled: false,
+            AppSettingsKeys.relayTopic: ""
         ])
     }
 }
