@@ -278,14 +278,25 @@ private struct MemberMapMarker: View {
         }
     }
 
-    /// Exact battery percentage shown on the pin, with a charging bolt when plugged in.
+    /// Exact battery percentage shown on the pin, with a charging bolt when plugged
+    /// in and a glyph that reflects the actual charge level.
     private var batteryTag: some View {
         HStack(spacing: 2) {
-            Image(systemName: pin.isCharging ? "bolt.fill" : "battery.100")
+            Image(systemName: batterySymbol)
                 .font(.system(size: 8))
             Text("\(pin.batteryPercentage)%")
         }
         .foregroundColor(pin.isCharging ? .green : (pin.batteryPercentage < 20 ? .red : .secondary))
+    }
+
+    private var batterySymbol: String {
+        if pin.isCharging { return "battery.100.bolt" }
+        switch pin.batteryPercentage {
+        case ..<15: return "battery.25"
+        case ..<50: return "battery.50"
+        case ..<80: return "battery.75"
+        default: return "battery.100"
+        }
     }
 
     // The current user's own pin shows their profile picture too, with a blue
