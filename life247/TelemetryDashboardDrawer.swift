@@ -24,6 +24,13 @@ struct TelemetryDashboardDrawer: View {
     @State private var pendingPlace: PendingPlace?
     @State private var editingZone: GeofenceZone?
     @State private var selectedTrip: HistoricalRouteDrive?
+    @State private var quickMessageSent: String?
+
+    /// Tappable canned messages pinned to the top of the drawer.
+    private let quickMessages = [
+        "I'm home", "On my way", "Get home safe", "I love you", "I miss you",
+        "Made it safe", "I'm at school", "I'm at work", "Running late", "Call me"
+    ]
 
     /// All circle members to display, ensuring the current operator always
     /// appears even before their first position reaches the shared database.
@@ -41,7 +48,10 @@ struct TelemetryDashboardDrawer: View {
     var body: some View {
         VStack(spacing: 0) {
             Capsule().fill(Color(.systemGray4)).frame(width: 36, height: 5).padding(.vertical, 14)
-            
+
+            quickMessageBar
+                .padding(.bottom, 12)
+
             HStack(spacing: 0) {
                 TabButton(title: "Circle", index: 0, activeIndex: $activeTabPaneIndex)
                 TabButton(title: "Places", index: 1, activeIndex: $activeTabPaneIndex)
@@ -129,6 +139,41 @@ struct TelemetryDashboardDrawer: View {
         .background(Color(.systemBackground))
     }
     
+    // MARK: - Quick messages
+
+    private var quickMessageBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(quickMessages, id: \.self) { message in
+                    let justSent = quickMessageSent == message
+                    Button {
+                        sendQuickMessage(message)
+                    } label: {
+                        Text(justSent ? "Sent ✓" : message)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 9)
+                            .background(Capsule().fill(justSent ? Color.green : Color.purple))
+                            .shadow(color: .black.opacity(0.18), radius: 3, x: 0, y: 1)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+
+    private func sendQuickMessage(_ message: String) {
+        CircleChatService.shared.send(message)
+        withAnimation { quickMessageSent = message }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+            if quickMessageSent == message {
+                withAnimation { quickMessageSent = nil }
+            }
+        }
+    }
+
     // MARK: - Driving pane
 
     /// A per-person section of trips for the grouped Trips list.
