@@ -34,6 +34,9 @@ final class CircleSyncService: ObservableObject {
     private var previousSOSByMember: [String: Bool] = [:]
     private var didLoadInitialRoster = false
 
+    // Previous battery level of this device, used to relay a one-shot low-battery push.
+    private var previousSelfBattery: Int?
+
     private let lowBatteryThreshold = 20
 
     private let circleID = "main"
@@ -107,6 +110,7 @@ final class CircleSyncService: ObservableObject {
     /// Toggles this device's SOS broadcast and pushes it out immediately.
     func setSOS(_ active: Bool) {
         isBroadcastingSOS = active
+        if active { RelayPushService.shared.relaySOS() }
         publishSelf()
     }
 
@@ -122,13 +126,21 @@ final class CircleSyncService: ObservableObject {
         let speed = max(0, BackgroundTrackingEngine.shared.liveSpeed)
         let state = UIDevice.current.batteryState
         let isCharging = (state == .charging || state == .full)
+        let battery = BackgroundTrackingEngine.batteryPercentage(from: UIDevice.current.batteryLevel)
+
+        // Relay this device's own low-battery alert once, as it crosses the threshold.
+        if let previous = previousSelfBattery, previous >= lowBatteryThreshold,
+           battery < lowBatteryThreshold, !isCharging {
+            RelayPushService.shared.relayLowBattery(percent: battery)
+        }
+        previousSelfBattery = battery
 
         let payload: [String: Any] = [
             "id": memberID,
             "name": memberName,
             "latitude": coordinate.latitude,
             "longitude": coordinate.longitude,
-            "batteryPercentage": BackgroundTrackingEngine.batteryPercentage(from: UIDevice.current.batteryLevel),
+            "batteryPercentage": battery,
             "isCharging": isCharging,
             "sos": isBroadcastingSOS,
             "currentSpeed": speed,

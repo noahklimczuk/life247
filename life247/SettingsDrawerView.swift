@@ -22,6 +22,8 @@ struct SettingsDrawerView: View {
     @AppStorage(AppSettingsKeys.autoRouteRecording) private var autoRouteRecording = true
     @AppStorage(AppSettingsKeys.useMiles) private var useMiles = false
     @AppStorage(AppSettingsKeys.mapStyle) private var mapStyleRaw = MapStyleChoice.standard.rawValue
+    @AppStorage(AppSettingsKeys.relayPushEnabled) private var relayPushEnabled = false
+    @AppStorage(AppSettingsKeys.relayTopic) private var relayTopic = ""
 
     @State private var showSignOutConfirm = false
     @State private var clearedHistory = false
@@ -41,6 +43,7 @@ struct SettingsDrawerView: View {
                 profileSection
                 locationSection
                 notificationsSection
+                relaySection
                 mapUnitsSection
                 dataSection
                 accountSection
@@ -122,6 +125,31 @@ struct SettingsDrawerView: View {
             Toggle("Chat Messages", isOn: $chatAlerts)
         }
         .tint(.purple)
+    }
+
+    private var relaySection: some View {
+        Section {
+            Toggle("Off-App Push", isOn: $relayPushEnabled)
+            HStack {
+                TextField("shared topic", text: $relayTopic)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled(true)
+                if relayTopic.trimmingCharacters(in: .whitespaces).isEmpty {
+                    Button("Generate") { relayTopic = Self.suggestedTopic() }
+                        .font(.caption.bold())
+                        .buttonStyle(.borderless)
+                }
+            }
+        } header: {
+            Text("Off-App Push (ntfy)")
+        } footer: {
+            Text("Get alerts even when life247 is force-quit. Install the free ntfy app on both phones and subscribe to this exact topic. Keep it secret — anyone who knows it can read your alerts.")
+        }
+        .tint(.purple)
+    }
+
+    private static func suggestedTopic() -> String {
+        "life247-" + UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(8).lowercased()
     }
 
     private var mapUnitsSection: some View {

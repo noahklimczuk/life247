@@ -261,6 +261,7 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
     func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
         if let uuid = UUID(uuidString: region.identifier), let zone = activeGeofences.first(where: { $0.id == uuid }) {
             dispatchLocalNotification(title: "Arrived at destination", message: "Entered your place: \(zone.name)")
+            RelayPushService.shared.relayPlaceArrival(zone.name)
             setupZoneMetrologyTracking(for: uuid)
         }
     }
@@ -268,6 +269,7 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
     func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
         if let uuid = UUID(uuidString: region.identifier), let zone = activeGeofences.first(where: { $0.id == uuid }) {
             dispatchLocalNotification(title: "Left region boundary", message: "Departed your place: \(zone.name)")
+            RelayPushService.shared.relayPlaceDeparture(zone.name)
             teardownZoneMetrologyTracking()
         }
     }

@@ -85,6 +85,10 @@ final class CircleChatService: ObservableObject {
         ]
         guard let body = try? JSONSerialization.data(withJSONObject: payload) else { return }
 
+        // Relay outgoing messages so the other person is alerted even if their
+        // app is force-quit (check-ins post here too, so they relay as well).
+        RelayPushService.shared.relayChat(trimmed)
+
         // Optimistic local echo so the sender sees it immediately.
         let optimistic = ChatMessage(id: UUID().uuidString, senderId: senderId, senderName: senderName, text: trimmed, timestamp: Date(timeIntervalSince1970: now))
         DispatchQueue.main.async {
