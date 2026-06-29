@@ -16,6 +16,7 @@ struct LocalMapMarkerIdentifier: Identifiable {
     let isCurrentUser: Bool
     var isCharging: Bool = false
     var batteryPercentage: Int = 100
+    var avatarBase64: String? = nil
 }
 
 struct MainApplicationTelemetryWorkspace: View {
@@ -210,14 +211,15 @@ struct MainApplicationTelemetryWorkspace: View {
                     coordinate: dynamicCoordinate,
                     isCurrentUser: true,
                     isCharging: profile.isCharging,
-                    batteryPercentage: profile.batteryPercentage
+                    batteryPercentage: profile.batteryPercentage,
+                    avatarBase64: profile.avatarBase64
                 )
             )
         }
 
         // Every other circle member sourced live from the shared database.
         for member in circleSync.members {
-            if let myUsername, member.name.lowercased() == myUsername { continue }
+            if let myUsername, member.username == myUsername { continue }
             pins.append(
                 LocalMapMarkerIdentifier(
                     id: member.id,
@@ -225,7 +227,8 @@ struct MainApplicationTelemetryWorkspace: View {
                     coordinate: member.coordinate,
                     isCurrentUser: false,
                     isCharging: member.isCharging,
-                    batteryPercentage: member.batteryPercentage
+                    batteryPercentage: member.batteryPercentage,
+                    avatarBase64: member.avatarBase64
                 )
             )
         }
@@ -259,7 +262,7 @@ private struct MemberMapMarker: View {
             if pin.isCurrentUser {
                 currentUserDot
             } else {
-                MemberAvatar(name: pin.name, isCharging: pin.isCharging, size: 46)
+                MemberAvatar(name: pin.name, isCharging: pin.isCharging, size: 46, image: AvatarCache.image(forBase64: pin.avatarBase64))
                     .shadow(color: .black.opacity(0.2), radius: 3, x: 0, y: 1)
             }
 

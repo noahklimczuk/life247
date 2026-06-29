@@ -22,6 +22,7 @@ struct life247App: App {
                 .environmentObject(BackgroundTrackingEngine.shared)
                 .environmentObject(CircleSyncService.shared)
                 .environmentObject(CircleChatService.shared)
+                .environmentObject(TripsSyncService.shared)
         }
     }
 }

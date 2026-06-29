@@ -70,6 +70,11 @@ final class CircleChatService: ObservableObject {
         didLoadInitial = false
     }
 
+    /// Updates the name attached to this device's outgoing messages.
+    func updateDisplayName(_ name: String) {
+        senderName = name
+    }
+
     // MARK: - Send
 
     func send(_ text: String) {

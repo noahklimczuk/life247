@@ -17,6 +17,7 @@ enum NotificationCategory: String {
     case sos
     case chat
     case checkIn
+    case trip
 }
 
 final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
@@ -52,6 +53,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         case .place, .checkIn: return defaults.bool(forKey: AppSettingsKeys.placeAlerts)
         case .battery: return defaults.bool(forKey: AppSettingsKeys.lowBatteryAlerts)
         case .chat: return defaults.bool(forKey: AppSettingsKeys.chatAlerts)
+        case .trip: return defaults.bool(forKey: AppSettingsKeys.autoRouteRecording)
         case .sos: return true
         }
     }

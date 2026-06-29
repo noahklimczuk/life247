@@ -91,6 +91,14 @@ final class RelayPushService {
              tags: ["round_pushpin"])
     }
 
+    func relayTripComplete(duration: TimeInterval, topSpeedMetersPerSecond: Double) {
+        let summary = "\(UnitFormatter.durationString(seconds: duration)) trip, top speed \(UnitFormatter.speedString(metersPerSecond: topSpeedMetersPerSecond))."
+        send(title: "\(prefix)Trip complete",
+             body: summary,
+             priority: .default,
+             tags: ["car"])
+    }
+
     // MARK: - Core send
 
     func send(title: String, body: String, priority: Priority = .default, tags: [String] = []) {

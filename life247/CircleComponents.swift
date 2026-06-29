@@ -37,25 +37,70 @@ enum MemberPalette {
     }
 }
 
+// MARK: - Avatar image cache
+
+/// Decodes base64 profile pictures once and caches the resulting images so the
+/// 5-second roster polls don't re-decode the same avatar on every refresh.
+enum AvatarCache {
+    private static let cache = NSCache<NSString, UIImage>()
+
+    /// Returns the decoded image for a base64 JPEG string, caching by the string.
+    static func image(forBase64 base64: String?) -> UIImage? {
+        guard let base64, !base64.isEmpty else { return nil }
+        let key = base64 as NSString
+        if let cached = cache.object(forKey: key) { return cached }
+        guard let data = Data(base64Encoded: base64), let image = UIImage(data: data) else { return nil }
+        cache.setObject(image, forKey: key)
+        return image
+    }
+
+    /// Downscales an image to a small square thumbnail and encodes it as base64
+    /// JPEG, small enough to ride along in the Realtime Database member node.
+    static func encode(_ image: UIImage, maxDimension: CGFloat = 96, quality: CGFloat = 0.5) -> String? {
+        let longest = max(image.size.width, image.size.height)
+        let scale = longest > maxDimension ? maxDimension / longest : 1
+        let target = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        let renderer = UIGraphicsImageRenderer(size: target, format: format)
+        let resized = renderer.image { _ in image.draw(in: CGRect(origin: .zero, size: target)) }
+
+        return resized.jpegData(compressionQuality: quality)?.base64EncodedString()
+    }
+}
+
 // MARK: - Avatar
 
 struct MemberAvatar: View {
     let name: String
     var isCharging: Bool = false
     var size: CGFloat = 48
+    var image: UIImage? = nil
 
     var body: some View {
         let color = MemberPalette.color(for: name)
         ZStack(alignment: .bottomTrailing) {
-            Circle()
-                .fill(color.opacity(0.18))
-                .overlay(Circle().stroke(color, lineWidth: max(2, size * 0.06)))
-                .frame(width: size, height: size)
-                .overlay(
-                    Text(MemberPalette.initials(for: name))
-                        .font(.system(size: size * 0.36, weight: .bold))
-                        .foregroundColor(color)
-                )
+            Group {
+                if let image {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: size, height: size)
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(color, lineWidth: max(2, size * 0.06)))
+                } else {
+                    Circle()
+                        .fill(color.opacity(0.18))
+                        .overlay(Circle().stroke(color, lineWidth: max(2, size * 0.06)))
+                        .frame(width: size, height: size)
+                        .overlay(
+                            Text(MemberPalette.initials(for: name))
+                                .font(.system(size: size * 0.36, weight: .bold))
+                                .foregroundColor(color)
+                        )
+                }
+            }
 
             if isCharging {
                 Image(systemName: "bolt.fill")
@@ -114,7 +159,7 @@ struct CircleMemberRow: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            MemberAvatar(name: member.name, isCharging: charging, size: 52)
+            MemberAvatar(name: member.name, isCharging: charging, size: 52, image: AvatarCache.image(forBase64: member.avatarBase64))
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {

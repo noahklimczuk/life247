@@ -19,6 +19,9 @@ enum TrackedUserActivity: String, Codable {
 struct UserState: Identifiable, Codable {
     var id: String
     var name: String
+    /// Stable login handle (e.g. "noah"), used for circle identity so a member's
+    /// editable display name can change without affecting who they are.
+    var username: String = ""
     var latitude: Double
     var longitude: Double
     var batteryPercentage: Int
@@ -26,6 +29,8 @@ struct UserState: Identifiable, Codable {
     var activity: TrackedUserActivity
     var isCharging: Bool = false
     var isSOS: Bool = false
+    /// Optional profile picture as a base64-encoded JPEG thumbnail, synced via the circle.
+    var avatarBase64: String? = nil
     var atLocationSince: Date = Date()
 
     var coordinate: CLLocationCoordinate2D {

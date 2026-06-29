@@ -38,6 +38,8 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
     private var perimeterTimer: Timer?
     private var zoneArrivalTimestamp: Date?
     private let persistedGeofencesKey = "life247.savedGeofences"
+    private let persistedDrivesKey = "life247.recordedDrives"
+    private let maxPersistedDrives = 100
     private var wantsAmbientUpdates = false
     
     override private init() {
@@ -137,6 +139,7 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
                    self.incrementalDistanceMeters >= self.autoTripMinDistanceMeters {
                     let drive = HistoricalRouteDrive(startTime: start, endTime: Date(), totalDistanceMeters: self.incrementalDistanceMeters, maxSpeedMetersPerSecond: self.driveMaxSpeed, breadcrumbs: self.pathSequence)
                     self.recordedDrivesHistory.insert(drive, at: 0)
+                    self.finalizeCompletedTrip(drive)
                 }
                 self.driveStartedDate = nil
             }
@@ -282,7 +285,9 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
         let kmh = speed * 3.6
 
         if !liveTrackingActive {
-            if kmh >= autoTripMovingThresholdKmh {
+            // Only begin a trip once the operator is moving AND outside every saved
+            // place, so time spent at home/work doesn't get logged as a trip.
+            if kmh >= autoTripMovingThresholdKmh, !isInsideAnyPlace() {
                 synchronizeTrackingState(isActive: true)
             }
             return
@@ -304,7 +309,55 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
             dispatchLocalNotification(title: "Arrived at destination", message: "Entered your place: \(zone.name)")
             RelayPushService.shared.relayPlaceArrival(zone.name)
             setupZoneMetrologyTracking(for: uuid)
+            // Arriving at a place ends the current trip — trips only cover travel
+            // between places, not time spent inside one.
+            if liveTrackingActive {
+                synchronizeTrackingState(isActive: false)
+            }
         }
+    }
+
+    /// Whether the operator's live position currently falls inside any saved place.
+    private func isInsideAnyPlace() -> Bool {
+        guard let here = liveLocation else { return false }
+        let location = CLLocation(latitude: here.latitude, longitude: here.longitude)
+        return activeGeofences.contains { zone in
+            location.distance(from: CLLocation(latitude: zone.latitude, longitude: zone.longitude)) <= zone.radius
+        }
+    }
+
+    /// Persists, publishes to the circle, and announces a freshly completed trip.
+    private func finalizeCompletedTrip(_ drive: HistoricalRouteDrive) {
+        persistDrives()
+        TripsSyncService.shared.publish(drive)
+        let summary = "\(drive.modeLabel) · \(UnitFormatter.durationString(seconds: drive.duration)) · top speed \(UnitFormatter.speedString(metersPerSecond: drive.maxSpeedMetersPerSecond))"
+        NotificationManager.shared.post(title: "Trip complete", body: summary, category: .trip)
+        RelayPushService.shared.relayTripComplete(duration: drive.duration, topSpeedMetersPerSecond: drive.maxSpeedMetersPerSecond)
+    }
+
+    // MARK: - Trip persistence
+
+    private func persistDrives() {
+        let capped = Array(recordedDrivesHistory.prefix(maxPersistedDrives))
+        if let data = try? JSONEncoder().encode(capped) {
+            UserDefaults.standard.set(data, forKey: persistedDrivesKey)
+        }
+    }
+
+    /// Reloads this device's previously recorded trips. Safe to call repeatedly;
+    /// it only seeds when the in-memory history is still empty.
+    func restorePersistedDrives() {
+        guard recordedDrivesHistory.isEmpty,
+              let data = UserDefaults.standard.data(forKey: persistedDrivesKey),
+              let drives = try? JSONDecoder().decode([HistoricalRouteDrive].self, from: data) else { return }
+        recordedDrivesHistory = drives
+    }
+
+    /// Clears this device's trip history locally and removes it from the circle.
+    func clearTripHistory() {
+        recordedDrivesHistory.removeAll()
+        persistDrives()
+        TripsSyncService.shared.clearOwnTrips()
     }
     
     func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {

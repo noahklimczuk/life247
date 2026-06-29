@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import PhotosUI
+import UIKit
 
 struct SettingsDrawerView: View {
     @EnvironmentObject var authContext: SessionAuthContext
@@ -27,6 +29,8 @@ struct SettingsDrawerView: View {
 
     @State private var showSignOutConfirm = false
     @State private var clearedHistory = false
+    @State private var selectedPhoto: PhotosPickerItem?
+    @State private var nameDraft = ""
 
     private var displayName: String { authContext.currentUserProfile?.name ?? "Operator" }
 
@@ -87,9 +91,25 @@ struct SettingsDrawerView: View {
     private var profileSection: some View {
         Section {
             HStack(spacing: 14) {
-                MemberAvatar(name: displayName, size: 56)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(displayName).font(.title3).bold()
+                PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                    ZStack(alignment: .bottomTrailing) {
+                        MemberAvatar(name: displayName, size: 56, image: AvatarCache.image(forBase64: authContext.currentUserProfile?.avatarBase64))
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(6)
+                            .background(Circle().fill(Color.purple))
+                            .overlay(Circle().stroke(Color(.systemBackground), lineWidth: 2))
+                    }
+                }
+                .buttonStyle(.plain)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    TextField("Display name", text: $nameDraft)
+                        .font(.title3.bold())
+                        .textInputAutocapitalization(.words)
+                        .submitLabel(.done)
+                        .onSubmit(commitName)
                     HStack(spacing: 5) {
                         Circle().fill(shareLocation ? Color.green : Color.orange).frame(width: 8, height: 8)
                         Text(shareLocation ? "Sharing location" : "Location paused")
@@ -100,6 +120,41 @@ struct SettingsDrawerView: View {
                 Spacer()
             }
             .padding(.vertical, 6)
+
+            if authContext.currentUserProfile?.avatarBase64 != nil {
+                Button(role: .destructive) {
+                    selectedPhoto = nil
+                    authContext.updateAvatar(nil)
+                } label: {
+                    Label("Remove Photo", systemImage: "trash")
+                }
+            }
+        } header: {
+            Text("Profile")
+        } footer: {
+            Text("Your name and photo are shared with your circle.")
+        }
+        .onAppear { if nameDraft.isEmpty { nameDraft = displayName } }
+        .onDisappear(perform: commitName)
+        .onChange(of: selectedPhoto) { _, newItem in loadPhoto(newItem) }
+    }
+
+    /// Saves the edited display name (when changed) to the profile and circle.
+    private func commitName() {
+        guard authContext.currentUserProfile != nil else { return }
+        let trimmed = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != displayName else { return }
+        authContext.updateDisplayName(trimmed)
+    }
+
+    /// Loads the picked photo and stores it as the operator's profile picture.
+    private func loadPhoto(_ item: PhotosPickerItem?) {
+        guard let item else { return }
+        Task {
+            if let data = try? await item.loadTransferable(type: Data.self),
+               let image = UIImage(data: data) {
+                await MainActor.run { authContext.updateAvatar(image) }
+            }
         }
     }
 
@@ -174,7 +229,7 @@ struct SettingsDrawerView: View {
     private var dataSection: some View {
         Section {
             Button {
-                trackingEngine.recordedDrivesHistory.removeAll()
+                trackingEngine.clearTripHistory()
                 withAnimation { clearedHistory = true }
             } label: {
                 HStack {
