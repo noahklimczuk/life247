@@ -19,6 +19,7 @@ struct ChatView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 messagesList
+                Divider()
                 composer
             }
             .navigationTitle("Circle Chat")
