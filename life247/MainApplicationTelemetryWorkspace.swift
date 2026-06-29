@@ -260,7 +260,7 @@ private struct MemberMapMarker: View {
     var body: some View {
         VStack(spacing: 2) {
             if pin.isCurrentUser {
-                currentUserDot
+                currentUserMarker
             } else {
                 MemberAvatar(name: pin.name, isCharging: pin.isCharging, size: 46, image: AvatarCache.image(forBase64: pin.avatarBase64))
                     .shadow(color: .black.opacity(0.2), radius: 3, x: 0, y: 1)
@@ -288,13 +288,14 @@ private struct MemberMapMarker: View {
         .foregroundColor(pin.isCharging ? .green : (pin.batteryPercentage < 20 ? .red : .secondary))
     }
 
-    // Find My-style blue location dot: soft accuracy halo, white ring, solid core.
-    private var currentUserDot: some View {
+    // The current user's own pin shows their profile picture too, with a blue
+    // accuracy halo + ring so "you" stays distinguishable from other members.
+    private var currentUserMarker: some View {
         ZStack {
             Circle().fill(Color.blue.opacity(0.18)).frame(width: 58, height: 58)
-            Circle().fill(Color.white).frame(width: 28, height: 28)
-                .shadow(color: .black.opacity(0.25), radius: 3, x: 0, y: 1)
-            Circle().fill(Color.blue).frame(width: 22, height: 22)
+            MemberAvatar(name: pin.name, isCharging: pin.isCharging, size: 46, image: AvatarCache.image(forBase64: pin.avatarBase64))
+                .overlay(Circle().stroke(Color.blue, lineWidth: 3))
+                .shadow(color: .black.opacity(0.2), radius: 3, x: 0, y: 1)
         }
         .frame(width: 58, height: 58)
     }

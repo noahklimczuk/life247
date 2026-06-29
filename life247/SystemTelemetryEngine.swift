@@ -462,6 +462,12 @@ class AppleAddressLookupService: NSObject, ObservableObject, MKLocalSearchComple
     private var searchCompleter = MKLocalSearchCompleter()
     private var cancellable: AnyCancellable?
     private let searchSubject = PassthroughSubject<String, Never>()
+
+    /// Province / territory codes used to recognise Canadian completions even
+    /// when MapKit omits the country name for nearby (domestic) results.
+    private let canadianProvinceCodes: Set<String> = [
+        "AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT"
+    ]
     
     override init() {
         super.init()
@@ -495,9 +501,25 @@ class AppleAddressLookupService: NSObject, ObservableObject, MKLocalSearchComple
     
     func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
         DispatchQueue.main.async {
-            self.lookupResults = completer.results
+            self.lookupResults = completer.results.filter { self.isCanadian($0) }
             self.networkOperationActive = false
         }
+    }
+
+    /// Keeps only completions that resolve to a Canadian address. MapKit's
+    /// `region` only *biases* results toward Canada, so US (and other) addresses
+    /// still appear; this filters them out.
+    private func isCanadian(_ completion: MKLocalSearchCompletion) -> Bool {
+        let text = "\(completion.title) \(completion.subtitle)"
+        let lower = text.lowercased()
+        if lower.contains("united states") || lower.contains("usa") { return false }
+        if lower.contains("canada") { return true }
+        // Domestic completions sometimes omit the country; fall back to matching a
+        // province/territory code token (e.g. "Toronto, ON").
+        let tokens = text
+            .components(separatedBy: CharacterSet(charactersIn: ", "))
+            .map { $0.trimmingCharacters(in: .whitespaces).uppercased() }
+        return tokens.contains { canadianProvinceCodes.contains($0) }
     }
     
     func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
