@@ -240,6 +240,9 @@ struct SettingsDrawerView: View {
                 .foregroundColor(clearedHistory ? .secondary : .red)
             }
             .disabled(clearedHistory || trackingEngine.recordedDrivesHistory.isEmpty)
+            .onChange(of: trackingEngine.recordedDrivesHistory.count) { _, newCount in
+                if newCount > 0 { clearedHistory = false }
+            }
         } header: {
             Text("Data & Privacy")
         } footer: {
