@@ -10,6 +10,7 @@
 //
 
 import Foundation
+import Combine
 
 final class TripsSyncService: ObservableObject {
     static let shared = TripsSyncService()
