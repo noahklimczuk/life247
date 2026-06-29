@@ -31,7 +31,10 @@ struct UserState: Identifiable, Codable {
     var isSOS: Bool = false
     /// Optional profile picture as a base64-encoded JPEG thumbnail, synced via the circle.
     var avatarBase64: String? = nil
+    /// When the member last settled at their current location (dwell-timer start).
     var atLocationSince: Date = Date()
+    /// When the member last published an update (freshness / "last seen").
+    var lastUpdated: Date = Date()
 
     var coordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
