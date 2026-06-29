@@ -33,13 +33,6 @@ struct MainApplicationTelemetryWorkspace: View {
     @State private var selectedRemoteMember: UserState?
     @State private var showChat = false
     @State private var showSOSConfirm = false
-    @State private var quickMessageSent: String?
-
-    /// Tappable canned messages shown just above the collapsed drawer.
-    private let quickMessages = [
-        "I'm home", "On my way", "Get home safe", "I love you", "I miss you",
-        "Made it safe", "I'm at school", "I'm at work", "Running late", "Call me"
-    ]
 
     @AppStorage(AppSettingsKeys.mapStyle) private var mapStyleRaw = MapStyleChoice.standard.rawValue
     @AppStorage(AppSettingsKeys.highAccuracy) private var highAccuracy = true
@@ -112,17 +105,6 @@ struct MainApplicationTelemetryWorkspace: View {
                         .transition(.opacity)
                 }
                 
-                // QUICK-MESSAGE BUBBLES floating just above the collapsed drawer.
-                if contextualSheetPresented && !showHamburgerMenu {
-                    VStack {
-                        Spacer()
-                        quickMessageBar
-                            .padding(.bottom, 104)
-                    }
-                    .ignoresSafeArea(.keyboard)
-                    .transition(.opacity)
-                }
-
                 // HAMBURGER SETTINGS DRAWER OVERLAY
                 SettingsDrawerView(
                     onClose: {
@@ -144,7 +126,7 @@ struct MainApplicationTelemetryWorkspace: View {
             }
             .sheet(isPresented: $contextualSheetPresented) {
                 TelemetryDashboardDrawer()
-                    .presentationDetents([.height(88), .medium, .large])
+                    .presentationDetents([.height(150), .medium, .large])
                     .presentationBackgroundInteraction(.enabled(upThrough: .medium))
                     .presentationCornerRadius(30)
                     .interactiveDismissDisabled(true)
@@ -171,41 +153,6 @@ struct MainApplicationTelemetryWorkspace: View {
             .task {
                 trackingEngine.applyAccuracyPreference(highAccuracy: highAccuracy)
                 trackingEngine.beginAmbientLocationUpdates()
-            }
-        }
-    }
-
-    // MARK: - Quick messages
-
-    private var quickMessageBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(quickMessages, id: \.self) { message in
-                    let justSent = quickMessageSent == message
-                    Button {
-                        sendQuickMessage(message)
-                    } label: {
-                        Text(justSent ? "Sent ✓" : message)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 9)
-                            .background(Capsule().fill(justSent ? Color.green : Color.purple))
-                            .shadow(color: .black.opacity(0.18), radius: 3, x: 0, y: 1)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, 16)
-        }
-    }
-
-    private func sendQuickMessage(_ message: String) {
-        CircleChatService.shared.send(message)
-        withAnimation { quickMessageSent = message }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
-            if quickMessageSent == message {
-                withAnimation { quickMessageSent = nil }
             }
         }
     }
