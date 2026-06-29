@@ -38,7 +38,7 @@ struct OperatorDetailView: View {
             List {
                 Section {
                     HStack(spacing: 16) {
-                        MemberAvatar(name: profile.name, isCharging: profile.isCharging, size: 64)
+                        MemberAvatar(name: profile.name, isCharging: profile.isCharging, size: 64, image: AvatarCache.image(forBase64: profile.avatarBase64))
                         VStack(alignment: .leading, spacing: 4) {
                             Text(profile.name).font(.title3).bold()
                             Text(statusLine)

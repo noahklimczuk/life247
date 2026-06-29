@@ -12,8 +12,11 @@ struct TelemetryDashboardDrawer: View {
     @EnvironmentObject var authContext: SessionAuthContext
     @EnvironmentObject var trackingEngine: BackgroundTrackingEngine
     @EnvironmentObject var circleSync: CircleSyncService
+    @EnvironmentObject var tripsSync: TripsSyncService
     
     @State private var activeTabPaneIndex = 0
+    @State private var expandedTripGroups: Set<String> = []
+    @State private var seededTripExpansion = false
     @StateObject private var appleLookupService = AppleAddressLookupService()
     @State private var postalSearchFieldText = ""
 
@@ -27,11 +30,13 @@ struct TelemetryDashboardDrawer: View {
     private var circleRoster: [UserState] {
         var list = circleSync.members
         if let me = authContext.currentUserProfile,
-           !list.contains(where: { $0.name.lowercased() == me.name.lowercased() }) {
+           !list.contains(where: { $0.username == me.username }) {
             list.insert(me, at: 0)
         }
         return list
     }
+
+    private var currentUsername: String { authContext.currentUserProfile?.username ?? "" }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -62,7 +67,7 @@ struct TelemetryDashboardDrawer: View {
                         .padding(.horizontal, 2)
 
                         ForEach(circleRoster) { member in
-                            let isMe = member.name.lowercased() == (authContext.currentUserProfile?.name.lowercased() ?? "")
+                            let isMe = !currentUsername.isEmpty && member.username == currentUsername
                             CircleMemberRow(
                                 member: member,
                                 isCurrentUser: isMe,
@@ -82,7 +87,7 @@ struct TelemetryDashboardDrawer: View {
                 }
                 .tag(0)
                 .sheet(item: $selectedMember) { member in
-                    let isMe = member.name.lowercased() == (authContext.currentUserProfile?.name.lowercased() ?? "")
+                    let isMe = !currentUsername.isEmpty && member.username == currentUsername
                     OperatorDetailView(profile: member, isCurrentUser: isMe)
                 }
                 
@@ -115,7 +120,7 @@ struct TelemetryDashboardDrawer: View {
                 // TAB 3: SAFETY — SOS, CHECK-IN, CIRCLE STATUS
                 SafetyPaneView(
                     roster: circleRoster,
-                    currentUserName: authContext.currentUserProfile?.name ?? ""
+                    currentUsername: currentUsername
                 )
                 .tag(3)
             }
@@ -126,6 +131,52 @@ struct TelemetryDashboardDrawer: View {
     
     // MARK: - Driving pane
 
+    /// A per-person section of trips for the grouped Trips list.
+    private struct TripGroup: Identifiable {
+        let id: String          // username (or "me" before identity loads)
+        let name: String        // display name
+        let avatarBase64: String?
+        let drives: [HistoricalRouteDrive]
+    }
+
+    private var ownTripGroupID: String { currentUsername.isEmpty ? "me" : currentUsername }
+
+    /// Trips grouped by user: this device's own trips first, then each circle
+    /// member's synced trips. Only people with at least one trip are shown.
+    private var tripGroups: [TripGroup] {
+        var groups: [TripGroup] = [
+            TripGroup(
+                id: ownTripGroupID,
+                name: authContext.currentUserProfile?.name ?? "You",
+                avatarBase64: authContext.currentUserProfile?.avatarBase64,
+                drives: trackingEngine.recordedDrivesHistory
+            )
+        ]
+        for (username, drives) in tripsSync.remoteTripsByUser.sorted(by: { $0.key < $1.key }) {
+            let member = circleSync.members.first(where: { $0.username == username })
+            groups.append(
+                TripGroup(
+                    id: username,
+                    name: member?.name ?? username.capitalized,
+                    avatarBase64: member?.avatarBase64,
+                    drives: drives
+                )
+            )
+        }
+        return groups.filter { !$0.drives.isEmpty }
+    }
+
+    private var totalTripCount: Int { tripGroups.reduce(0) { $0 + $1.drives.count } }
+
+    private func tripGroupExpansion(_ id: String) -> Binding<Bool> {
+        Binding(
+            get: { expandedTripGroups.contains(id) },
+            set: { expanded in
+                if expanded { expandedTripGroups.insert(id) } else { expandedTripGroups.remove(id) }
+            }
+        )
+    }
+
     private var drivingPane: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
@@ -133,37 +184,69 @@ struct TelemetryDashboardDrawer: View {
                     Text("Trips")
                         .font(.title3).bold()
                     Spacer()
-                    Text("\(trackingEngine.recordedDrivesHistory.count)")
+                    Text("\(totalTripCount)")
                         .font(.subheadline).bold()
                         .foregroundColor(.secondary)
                         .padding(.horizontal, 8).padding(.vertical, 2)
                         .background(Capsule().fill(Color(.tertiarySystemFill)))
                 }
 
-                if trackingEngine.recordedDrivesHistory.isEmpty {
+                if tripGroups.isEmpty {
                     VStack(spacing: 6) {
                         Image(systemName: "car")
                             .font(.title).foregroundColor(.secondary)
                         Text("No trips yet")
                             .font(.subheadline).bold()
-                        Text("Trips are recorded automatically when you start walking or driving.")
+                        Text("Trips are recorded automatically when you start walking or driving — outside your saved places.")
                             .font(.caption).foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 40)
                 } else {
-                    ForEach(trackingEngine.recordedDrivesHistory) { drive in
-                        Button(action: { selectedTrip = drive }) {
-                            tripRow(drive)
-                        }
-                        .buttonStyle(.plain)
+                    ForEach(tripGroups) { group in
+                        tripGroupSection(group)
                     }
                 }
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .onAppear {
+            // Default the current user's group open; remember if the user collapses it.
+            if !seededTripExpansion {
+                expandedTripGroups.insert(ownTripGroupID)
+                seededTripExpansion = true
+            }
+        }
+    }
+
+    private func tripGroupSection(_ group: TripGroup) -> some View {
+        DisclosureGroup(isExpanded: tripGroupExpansion(group.id)) {
+            VStack(spacing: 10) {
+                ForEach(group.drives) { drive in
+                    Button(action: { selectedTrip = drive }) {
+                        tripRow(drive)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.top, 8)
+        } label: {
+            HStack(spacing: 12) {
+                MemberAvatar(name: group.name, size: 34, image: AvatarCache.image(forBase64: group.avatarBase64))
+                Text(group.name).font(.headline)
+                Spacer()
+                Text("\(group.drives.count)")
+                    .font(.subheadline).bold()
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 8).padding(.vertical, 2)
+                    .background(Capsule().fill(Color(.tertiarySystemFill)))
+            }
+        }
+        .tint(.purple)
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 18).fill(Color(.secondarySystemBackground)))
     }
 
     private func tripRow(_ drive: HistoricalRouteDrive) -> some View {

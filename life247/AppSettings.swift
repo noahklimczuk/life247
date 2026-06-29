@@ -19,6 +19,7 @@ enum AppSettingsKeys {
     static let mapStyle = "life247.mapStyle"
     static let relayPushEnabled = "life247.relayPushEnabled"
     static let relayTopic = "life247.relayTopic"
+    static let selfAvatar = "life247.selfAvatar"
 }
 
 extension UserDefaults {

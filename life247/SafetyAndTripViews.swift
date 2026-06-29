@@ -117,7 +117,7 @@ struct TripDetailView: View {
 /// each member's current safety status.
 struct SafetyPaneView: View {
     let roster: [UserState]
-    let currentUserName: String
+    let currentUsername: String
 
     @EnvironmentObject var circleSync: CircleSyncService
     @EnvironmentObject var trackingEngine: BackgroundTrackingEngine
@@ -205,10 +205,10 @@ struct SafetyPaneView: View {
     }
 
     private func statusRow(_ member: UserState) -> some View {
-        let isMe = member.name.lowercased() == currentUserName.lowercased()
+        let isMe = !currentUsername.isEmpty && member.username == currentUsername
         let place = circleSync.place(for: member)
         return HStack(spacing: 12) {
-            MemberAvatar(name: member.name, isCharging: member.isCharging, size: 40)
+            MemberAvatar(name: member.name, isCharging: member.isCharging, size: 40, image: AvatarCache.image(forBase64: member.avatarBase64))
             VStack(alignment: .leading, spacing: 2) {
                 Text(member.name + (isMe ? " (You)" : "")).font(.subheadline).bold()
                 Text(place.map { "at \($0.name)" } ?? statusText(member))

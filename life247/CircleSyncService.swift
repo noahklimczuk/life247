@@ -55,6 +55,7 @@ final class CircleSyncService: ObservableObject {
 
     private var memberID = ""
     private var memberName = ""
+    private var memberAvatar: String?
     private var publishTimer: Timer?
     private var pollTimer: Timer?
 
@@ -107,6 +108,19 @@ final class CircleSyncService: ObservableObject {
         didLoadInitialRoster = false
     }
 
+    /// Updates this operator's broadcast display name and re-publishes it so the
+    /// rest of the circle picks up the change on their next poll.
+    func updateDisplayName(_ name: String) {
+        memberName = name
+        publishSelf()
+    }
+
+    /// Updates this operator's broadcast profile picture (base64 JPEG, nil to clear).
+    func updateAvatar(_ base64: String?) {
+        memberAvatar = base64
+        publishSelf()
+    }
+
     /// Toggles this device's SOS broadcast and pushes it out immediately.
     func setSOS(_ active: Bool) {
         isBroadcastingSOS = active
@@ -135,9 +149,10 @@ final class CircleSyncService: ObservableObject {
         }
         previousSelfBattery = battery
 
-        let payload: [String: Any] = [
+        var payload: [String: Any] = [
             "id": memberID,
             "name": memberName,
+            "username": username,
             "latitude": coordinate.latitude,
             "longitude": coordinate.longitude,
             "batteryPercentage": battery,
@@ -147,6 +162,7 @@ final class CircleSyncService: ObservableObject {
             "activity": Self.activity(forSpeedMetersPerSecond: speed).rawValue,
             "updatedAt": Date().timeIntervalSince1970
         ]
+        if let memberAvatar { payload["avatar"] = memberAvatar }
 
         guard let body = try? JSONSerialization.data(withJSONObject: payload) else { return }
 
@@ -170,7 +186,9 @@ final class CircleSyncService: ObservableObject {
                   let object = try? JSONSerialization.jsonObject(with: data),
                   let roster = object as? [String: Any] else { return }
 
-            let parsed = roster.values.compactMap { ($0 as? [String: Any]).flatMap(Self.decodeMember) }
+            let parsed = roster.compactMap { key, value in
+                (value as? [String: Any]).flatMap { Self.decodeMember($0, fallbackUsername: key) }
+            }
             DispatchQueue.main.async {
                 let sorted = parsed.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
                 self.detectAndAlertTransitions(for: sorted)
@@ -200,7 +218,7 @@ final class CircleSyncService: ObservableObject {
         defer { didLoadInitialRoster = true }
 
         for member in roster {
-            let key = member.name.lowercased()
+            let key = member.username
             if let me = currentUsername, key == me { continue }
 
             let zone = containingZone(latitude: member.latitude, longitude: member.longitude)
@@ -251,7 +269,7 @@ final class CircleSyncService: ObservableObject {
         return .stationary
     }
 
-    private nonisolated static func decodeMember(_ dict: [String: Any]) -> UserState? {
+    private nonisolated static func decodeMember(_ dict: [String: Any], fallbackUsername: String) -> UserState? {
         guard let id = dict["id"] as? String,
               let name = dict["name"] as? String,
               let latitude = (dict["latitude"] as? NSNumber)?.doubleValue,
@@ -264,10 +282,13 @@ final class CircleSyncService: ObservableObject {
         let speed = (dict["currentSpeed"] as? NSNumber)?.doubleValue ?? 0.0
         let activity = (dict["activity"] as? String).flatMap { TrackedUserActivity(rawValue: $0) } ?? .stationary
         let updatedAt = (dict["updatedAt"] as? NSNumber)?.doubleValue
+        let username = (dict["username"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? fallbackUsername
+        let avatar = (dict["avatar"] as? String).flatMap { $0.isEmpty ? nil : $0 }
 
         return UserState(
             id: id,
             name: name,
+            username: username.lowercased(),
             latitude: latitude,
             longitude: longitude,
             batteryPercentage: battery,
@@ -275,6 +296,7 @@ final class CircleSyncService: ObservableObject {
             activity: activity,
             isCharging: isCharging,
             isSOS: isSOS,
+            avatarBase64: avatar,
             atLocationSince: updatedAt.map { Date(timeIntervalSince1970: $0) } ?? Date()
         )
     }
