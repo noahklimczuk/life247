@@ -247,11 +247,12 @@ final class CircleSyncService: ObservableObject {
                                                     category: .battery)
                 }
 
-                // SOS raised.
+                // SOS raised → persistent, ringer-bypassing alert. Cleared when resolved.
                 if member.isSOS, !previousSOS {
-                    NotificationManager.shared.post(title: "🆘 \(member.name) needs help",
-                                                    body: "\(member.name) triggered an SOS. Open life247 to see their location.",
-                                                    category: .sos)
+                    NotificationManager.shared.postSOS(title: "🆘 \(member.name) needs help",
+                                                       body: "\(member.name) triggered an SOS. Open life247 to see their location.")
+                } else if !member.isSOS, previousSOS {
+                    NotificationManager.shared.clearSOS()
                 }
             }
 

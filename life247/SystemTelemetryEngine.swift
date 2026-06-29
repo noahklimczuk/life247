@@ -306,7 +306,8 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
     
     func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
         if let uuid = UUID(uuidString: region.identifier), let zone = activeGeofences.first(where: { $0.id == uuid }) {
-            dispatchLocalNotification(title: "Arrived at destination", message: "Entered your place: \(zone.name)")
+            // Only the *other* phone is alerted about my arrival (via relay + their
+            // in-app roster detection); this device doesn't notify itself.
             RelayPushService.shared.relayPlaceArrival(zone.name)
             setupZoneMetrologyTracking(for: uuid)
             // Arriving at a place ends the current trip — trips only cover travel
@@ -362,7 +363,7 @@ class BackgroundTrackingEngine: NSObject, ObservableObject, CLLocationManagerDel
     
     func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
         if let uuid = UUID(uuidString: region.identifier), let zone = activeGeofences.first(where: { $0.id == uuid }) {
-            dispatchLocalNotification(title: "Left region boundary", message: "Departed your place: \(zone.name)")
+            // Departure is announced only to the other phone, not to this device.
             RelayPushService.shared.relayPlaceDeparture(zone.name)
             teardownZoneMetrologyTracking()
         }
